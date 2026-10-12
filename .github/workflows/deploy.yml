@@ -1,0 +1,56 @@
+# main branch'ga har push'da kod serverga yuboriladi va qayta yig'iladi.
+# Kerakli secret'lar (birinchi ./deploy/push.sh ularni avtomatik qo'yadi):
+#   SERVER_HOST, SERVER_USER, SSH_PRIVATE_KEY   (ixtiyoriy: SERVER_PORT)
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Server sozlanganini tekshirish
+        id: check
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          if [ -z "$HOST" ]; then
+            echo "::notice::Server hali ulanmagan (SERVER_HOST yo'q) — deploy o'tkazib yuborildi. Birinchi marta ./deploy/push.sh ni ishga tushiring."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.check.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: SSH ulanishini tayyorlash
+        if: steps.check.outputs.ready == 'true'
+        env:
+          KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.SERVER_HOST }}
+          PORT: ${{ secrets.SERVER_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Serverga yuborish va yig'ish
+        if: steps.check.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER_NAME: ${{ secrets.SERVER_USER || 'root' }}
+          PORT: ${{ secrets.SERVER_PORT || '22' }}
+        run: |
+          tar -cz --exclude=./.git . |
+            ssh -p "$PORT" "$USER_NAME@$HOST" \
+              "mkdir -p /opt/myfin && tar -xzf - -C /opt/myfin --no-same-owner && MYFIN_CI=1 bash /opt/myfin/deploy/server-setup.sh"

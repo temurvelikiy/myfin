@@ -1,0 +1,133 @@
+// MyFin — shaxsiy moliya (SQLite, MVP).
+// Har bir jadval userId bilan bog'langan: tizim ko'p foydalanuvchiga tayyor.
+// Enum'lar SQLite'da yo'q, shuning uchun String sifatida saqlanadi.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String  @id @default(cuid())
+  login         String  @unique
+  passwordHash  String
+  telegramId    String? @unique
+  usdRate       Float   @default(12500) // 1 USD = ? UZS (hisobotlar uchun)
+  savingsTarget Int     @default(20) // daromadning necha foizi jamg'arilishi kerak
+  createdAt     DateTime @default(now())
+
+  sessions     Session[]
+  accounts     Account[]
+  categories   Category[]
+  budgets      Budget[]
+  transactions Transaction[]
+  debts        Debt[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Account {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  kind      String // CASH | CARD | WALLET
+  currency  String // UZS | USD
+  initial   Float   @default(0)
+  keywords  String  @default("") // bot/tezkor kiritish uchun: "humo,xumo"
+  isDefault Boolean @default(false)
+  archived  Boolean @default(false)
+  sort      Int     @default(0)
+  createdAt DateTime @default(now())
+
+  outgoing Transaction[] @relation("from")
+  incoming Transaction[] @relation("to")
+
+  @@index([userId])
+}
+
+model Category {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name     String
+  kind     String // EXPENSE | INCOME
+  icon     String  @default("📦")
+  keywords String  @default("")
+  archived Boolean @default(false)
+
+  budgets      Budget[]
+  transactions Transaction[]
+
+  @@unique([userId, name, kind])
+}
+
+// Oylik limit. Oy uchun yozuv bo'lmasa, undan oldingi eng so'nggi limit amal qiladi.
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  month      String // YYYY-MM
+  limit      Float
+
+  @@unique([categoryId, month])
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String // EXPENSE | INCOME | TRANSFER | EXCHANGE | DEBT_OUT | DEBT_IN
+  scope       String    @default("PERSONAL") // PERSONAL | BUSINESS
+  amount      Float // accountId valyutasida
+  accountId   String
+  account     Account   @relation("from", fields: [accountId], references: [id])
+  toAccountId String?
+  toAccount   Account?  @relation("to", fields: [toAccountId], references: [id])
+  toAmount    Float? // toAccountId valyutasida
+  rate        Float? // EXCHANGE: 1 USD uchun UZS
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  amountBase  Float // kiritilgan paytdagi kurs bo'yicha UZS ekvivalenti
+  note        String    @default("")
+  date        DateTime  @default(now())
+  debtId      String?
+  debt        Debt?     @relation(fields: [debtId], references: [id], onDelete: SetNull)
+  source      String    @default("WEB") // WEB | BOT
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, date])
+}
+
+model Debt {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  direction  String // GIVEN (men berdim) | TAKEN (men oldim)
+  person     String
+  amount     Float
+  currency   String    @default("UZS")
+  dueDate    DateTime?
+  status     String    @default("OPEN") // OPEN | CLOSED
+  note       String    @default("")
+  remindedAt DateTime?
+  closedAt   DateTime?
+  createdAt  DateTime  @default(now())
+
+  transactions Transaction[]
+
+  @@index([userId, status])
+}
