@@ -28,6 +28,7 @@ model User {
   transactions Transaction[]
   debts        Debt[]
   credits      Credit[]
+  goals        Goal[]
 }
 
 model Session {
@@ -92,7 +93,7 @@ model Transaction {
   id          String    @id @default(cuid())
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        String // EXPENSE | INCOME | TRANSFER | EXCHANGE | DEBT_OUT | DEBT_IN
+  type        String // EXPENSE | INCOME | TRANSFER | EXCHANGE | DEBT_OUT | DEBT_IN | SAVING_IN | SAVING_OUT
   scope       String    @default("PERSONAL") // PERSONAL | BUSINESS
   amount      Float // accountId valyutasida
   accountId   String
@@ -110,6 +111,8 @@ model Transaction {
   debt        Debt?     @relation(fields: [debtId], references: [id], onDelete: SetNull)
   creditId    String?
   credit      Credit?   @relation(fields: [creditId], references: [id], onDelete: SetNull)
+  goalId      String?
+  goal        Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
   source      String    @default("WEB") // WEB | BOT
   createdAt   DateTime  @default(now())
 
@@ -158,4 +161,22 @@ model Credit {
   transactions Transaction[]
 
   @@index([userId, status])
+}
+
+// Jamg'arma maqsadi (pul yig'ish). Yig'ilgan summa saqlanmaydi: SAVING_IN − SAVING_OUT yozuvlaridan hisoblanadi.
+model Goal {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  icon      String    @default("🎯")
+  target    Float
+  currency  String    @default("UZS")
+  deadline  DateTime?
+  note      String    @default("")
+  createdAt DateTime  @default(now())
+
+  transactions Transaction[]
+
+  @@index([userId])
 }

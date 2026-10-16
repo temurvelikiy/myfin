@@ -16,12 +16,14 @@ export type TxView = {
   account: { name: string; currency: string };
   toAccount: { name: string; currency: string } | null;
   category: { name: string; icon: string } | null;
+  goal: { name: string } | null;
 };
 
 export function TxRow({ tx: t, d, withDelete }: { tx: TxView; d: Dict; withDelete?: boolean }) {
-  const plus = t.type === "INCOME" || t.type === "DEBT_IN";
+  const saving = t.type === "SAVING_IN" || t.type === "SAVING_OUT";
+  const plus = t.type === "INCOME" || t.type === "DEBT_IN" || t.type === "SAVING_OUT";
   const moving = t.type === "TRANSFER" || t.type === "EXCHANGE";
-  const title = t.category ? `${t.category.icon} ${tn(d, t.category.name)}` : typeLabel(d)[t.type];
+  const title = t.goal ? `🎯 ${t.goal.name} · ${typeLabel(d)[t.type]}` : t.category ? `${t.category.icon} ${tn(d, t.category.name)}` : typeLabel(d)[t.type];
   return (
     <li className="flex items-center gap-3 py-2 text-sm">
       <span className="num w-10 shrink-0 text-xs text-slate-400">{shortDay(t.date)}</span>
@@ -36,7 +38,7 @@ export function TxRow({ tx: t, d, withDelete }: { tx: TxView; d: Dict; withDelet
           {t.note && ` · ${t.note}`}
         </p>
       </div>
-      <span className={`num shrink-0 font-medium ${moving ? "text-slate-500" : plus ? "text-blue-600" : "text-red-600"}`}>
+      <span className={`num shrink-0 font-medium ${moving ? "text-slate-500" : saving ? "text-peach-600" : plus ? "text-blue-600" : "text-red-600"}`}>
         {moving ? "" : plus ? "+" : "−"}
         {fmt(t.amount, t.account.currency)}
         {t.type === "EXCHANGE" && t.toAccount && ` → ${fmt(t.toAmount ?? 0, t.toAccount.currency)}`}
@@ -57,4 +59,5 @@ export const TX_INCLUDE = {
   account: { select: { name: true, currency: true } },
   toAccount: { select: { name: true, currency: true } },
   category: { select: { name: true, icon: true } },
+  goal: { select: { name: true } },
 } as const;

@@ -9,6 +9,9 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import {
   createCredit,
   createDebt,
+  createGoal,
+  getGoals,
+  saveToGoal,
   createTx,
   debtLeft,
   describeParsed,
@@ -154,6 +157,31 @@ export async function addTransaction(_: State, fd: FormData): Promise<State> {
   const accountId = str(fd.get("accountId"));
   const date = parseDay(str(fd.get("date"), 10));
   const pick = categoryId ?? "";
+
+  // Pul yig'ish: maqsadga qo'shish / yechish (yangi maqsad ham shu yerda yaratiladi).
+  if (type === "SAVING") {
+    const withdraw = fd.get("savingKind") === "out";
+    let goalId = str(fd.get("goalId"));
+    try {
+      if (!(amount > 0)) return err("errAmount");
+      if (goalId === "__goal_new") {
+        const acc = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
+        if (!acc) return err("errAccount");
+        const dl = str(fd.get("goalDeadline"), 10);
+        const g = await createGoal(user.id, {
+          name: str(fd.get("goalName"), 60),
+          target: num(fd.get("goalTarget")),
+          currency: acc.currency,
+          deadline: validDay(dl) ? new Date(`${dl}T12:00:00+05:00`) : null,
+        });
+        goalId = g.id;
+      }
+      await saveToGoal(user.id, goalId, { amount, accountId, withdraw, date, note: str(fd.get("note")) });
+    } catch (e) {
+      return fail(e);
+    }
+    return done(withdraw ? getT().goalWithdrawOk : getT().goalDepositOk);
+  }
 
   // Kategoriya ro'yxatidagi qarz va kredit bandlari: yangi qarz, qarzni qaytarish, kredit to'lovi.
   if (pick === "__debt_new" || pick.startsWith("debt:") || pick.startsWith("credit:")) {
@@ -392,6 +420,19 @@ export async function deleteCredit(fd: FormData) {
   await prisma.transaction.deleteMany({ where: { creditId: id, userId: user.id } });
   await prisma.credit.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/", "layout");
+}
+
+// ---------- Jamg'arma maqsadlari ----------
+
+export async function deleteGoal(_: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  const goal = (await getGoals(user.id)).find((g) => g.id === str(fd.get("id")));
+  if (!goal) return err("errGoal");
+  // Yig'ilgan pul bor maqsadni o'chirib bo'lmaydi: avval yechib olinadi, aks holda hisob qoldig'i noto'g'ri bo'lib qoladi.
+  if (goal.saved > 0) return err("goalNotEmpty");
+  await prisma.transaction.deleteMany({ where: { goalId: goal.id, userId: user.id } });
+  await prisma.goal.delete({ where: { id: goal.id } });
+  return done(getT().saved);
 }
 
 // ---------- Avatar ----------

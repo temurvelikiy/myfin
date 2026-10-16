@@ -13,20 +13,24 @@ type Cat = { id: string; name: string; icon: string; kind: string };
 // Ochiq qarz (qoldig'i bilan) va ochiq kredit (keyingi to'lovi bilan) — kategoriya ro'yxatida ko'rinadi.
 export type DebtOpt = { id: string; person: string; direction: string; left: number; currency: string };
 export type CreditOpt = { id: string; name: string; next: number | null; currency: string };
+export type GoalOpt = { id: string; name: string; icon: string; saved: number; target: number; currency: string };
 
 const TABS = [
   ["EXPENSE", "expense"],
   ["INCOME", "income"],
   ["TRANSFER", "transferExchange"],
+  ["SAVING", "tabSaving"],
 ] as const;
 const NEW = "__new";
 const DEBT_NEW = "__debt_new";
+const GOAL_NEW = "__goal_new";
 
 export function TxForm({
   accounts,
   categories,
   debts,
   credits,
+  goals,
   day,
   today,
 }: {
@@ -34,6 +38,7 @@ export function TxForm({
   categories: Cat[];
   debts: DebtOpt[];
   credits: CreditOpt[];
+  goals: GoalOpt[];
   day: string;
   today: string;
 }) {
@@ -42,6 +47,7 @@ export function TxForm({
   const [from, setFrom] = useState(accounts[0]?.id ?? "");
   const [toRaw, setTo] = useState(accounts[1]?.id ?? "");
   const [cat, setCat] = useState("");
+  const [goal, setGoal] = useState("");
   const [newCat, setNewCat] = useState(false);
   const form = useRef<HTMLFormElement>(null);
   const t = useT();
@@ -51,6 +57,12 @@ export function TxForm({
   const transfer = type === "TRANSFER";
   const exchange = transfer && cur(from) !== cur(to);
   const expense = type === "EXPENSE";
+  const saving = type === "SAVING";
+
+  // Pul yig'ish: tanlangan hisob valyutasidagi maqsadlar (+ yangi maqsad)
+  const goalList = goals.filter((g) => g.currency === cur(from));
+  const goalValue = goal && (goal === GOAL_NEW || goalList.some((g) => g.id === goal)) ? goal : goalList[0]?.id ?? GOAL_NEW;
+  const pickedGoal = goalList.find((g) => g.id === goalValue);
 
   // Xarajat: men qarz berdim (yangi) yoki olgan qarzimni qaytaraman. Daromad: men qarz oldim (yangi) yoki berganim qaytdi.
   const list = categories.filter((c) => c.kind === type);
@@ -66,13 +78,14 @@ export function TxForm({
     form.current?.reset();
     setNewCat(false);
     setCat("");
+    setGoal("");
   }, [state]);
 
   return (
     <div className="card">
       <div className="seg mb-4 max-w-full overflow-x-auto">
         {TABS.map(([v, key]) => (
-          <button key={v} type="button" aria-pressed={type === v} className="whitespace-nowrap" onClick={() => (setType(v), setNewCat(false), setCat(""))}>
+          <button key={v} type="button" aria-pressed={type === v} className="whitespace-nowrap" onClick={() => (setType(v), setNewCat(false), setCat(""), setGoal(""))}>
             {t[key]}
           </button>
         ))}
@@ -108,6 +121,43 @@ export function TxForm({
                 <label className="label">{t.receivedAmount} ({cur(to)})</label>
                 <input name="toAmount" className="input num" inputMode="decimal" required placeholder="0" autoComplete="off" />
               </div>
+            )}
+          </>
+        ) : saving ? (
+          <>
+            <div>
+              <label className="label">{t.goalPick}</label>
+              <select name="goalId" className="input" value={goalValue} onChange={(e) => setGoal(e.target.value)}>
+                {goalList.map((g) => (
+                  <option key={g.id} value={g.id}>{g.icon} {g.name}</option>
+                ))}
+                <option value={GOAL_NEW}>{t.goalNew}</option>
+              </select>
+            </div>
+            {goalValue !== GOAL_NEW && (
+              <div>
+                <label className="label">{t.savingKind}</label>
+                <select name="savingKind" className="input">
+                  <option value="in">{t.savingDeposit}</option>
+                  <option value="out">{t.savingWithdraw}</option>
+                </select>
+              </div>
+            )}
+            {goalValue === GOAL_NEW && (
+              <>
+                <div>
+                  <label className="label">{t.goalName}</label>
+                  <input name="goalName" className="input" placeholder={t.goalNamePlaceholder} maxLength={60} required />
+                </div>
+                <div>
+                  <label className="label">{t.goalTarget} ({cur(from)})</label>
+                  <input name="goalTarget" className="input num" inputMode="decimal" placeholder="0" required />
+                </div>
+                <div>
+                  <label className="label">{t.goalDeadline}</label>
+                  <input name="goalDeadline" type="date" className="input" min={today} />
+                </div>
+              </>
             )}
           </>
         ) : (
@@ -161,7 +211,7 @@ export function TxForm({
         )}
 
         {/* Yangi qarz: kim bilan va qachon qaytariladi */}
-        {!transfer && !newCat && isNewDebt && (
+        {!transfer && !saving && !newCat && isNewDebt && (
           <>
             <div className="col-span-2 lg:col-span-2">
               <label className="label">{t.debtPerson}</label>
@@ -173,10 +223,13 @@ export function TxForm({
             </div>
           </>
         )}
-        {!transfer && picked && (
+        {saving && pickedGoal && (
+          <p className="col-span-full -mt-1 text-xs text-slate-500">{fill(t.goalSaved, { s: fmt(pickedGoal.saved, pickedGoal.currency), t: fmt(pickedGoal.target, pickedGoal.currency) })}</p>
+        )}
+        {!transfer && !saving && picked && (
           <p className="col-span-full -mt-1 text-xs text-slate-500">{fill(t.remainingLabel, { v: fmt(picked.left, picked.currency) })}</p>
         )}
-        {!transfer && pickedCredit?.next != null && (
+        {!transfer && !saving && pickedCredit?.next != null && (
           <p className="col-span-full -mt-1 text-xs text-slate-500">{t.creditNext}: {fmt(pickedCredit.next, pickedCredit.currency)}</p>
         )}
 

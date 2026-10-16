@@ -5,7 +5,7 @@ import { DICTS, fill, tn, type Dict } from "./i18n";
 import { summarize } from "./credit";
 import type { Acc, Cat, Parsed } from "./parse";
 
-const PLUS = new Set(["INCOME", "DEBT_IN"]);
+const PLUS = new Set(["INCOME", "DEBT_IN", "SAVING_OUT"]);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const UZ = DICTS.uz;
@@ -18,6 +18,8 @@ export const typeLabel = (t: Dict): Record<string, string> => ({
   EXCHANGE: t.exchange,
   DEBT_OUT: t.debtOut,
   DEBT_IN: t.debtIn,
+  SAVING_IN: t.typeSavingIn,
+  SAVING_OUT: t.typeSavingOut,
 });
 
 // Qoldiq = boshlang'ich summa + barcha amallar. Alohida saqlanmaydi, shuning uchun buzilmaydi.
@@ -55,6 +57,7 @@ export type TxInput = {
   source?: string;
   debtId?: string | null;
   creditId?: string | null;
+  goalId?: string | null;
 };
 
 export async function createTx(userId: string, d: TxInput) {
@@ -105,6 +108,7 @@ export async function createTx(userId: string, d: TxInput) {
       source: d.source ?? "WEB",
       debtId: d.debtId ?? null,
       creditId: d.creditId ?? null,
+      goalId: d.goalId ?? null,
     },
   });
 }
@@ -416,5 +420,64 @@ export async function getCredits(userId: string) {
   return credits.map((c) => {
     const p = paidBy.get(c.id) ?? 0;
     return { ...c, paid: p, ...summarize(termsOf(c), p) };
+  });
+}
+
+// ---------- Jamg'arma (pul yig'ish) ----------
+
+// Maqsadlar yig'ilgan summa bilan: SAVING_IN − SAVING_OUT.
+export async function getGoals(userId: string) {
+  const [goals, sums] = await Promise.all([
+    prisma.goal.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+    prisma.transaction.groupBy({ by: ["goalId", "type"], where: { userId, goalId: { not: null } }, _sum: { amount: true } }),
+  ]);
+  return goals.map((g) => {
+    let saved = 0;
+    for (const r of sums) if (r.goalId === g.id) saved += (r.type === "SAVING_IN" ? 1 : r.type === "SAVING_OUT" ? -1 : 0) * (r._sum.amount ?? 0);
+    saved = Math.max(round2(saved), 0);
+    return { ...g, saved, left: Math.max(round2(g.target - saved), 0), done: saved >= g.target - 0.005 };
+  });
+}
+
+export async function createGoal(
+  userId: string,
+  d: { name: string; target: number; currency: string; deadline?: Date | null; note?: string },
+) {
+  if (!d.name) throw new Error("enterName");
+  if (!(d.target > 0)) throw new Error("errAmount");
+  return prisma.goal.create({
+    data: {
+      userId,
+      name: d.name.slice(0, 60),
+      target: round2(d.target),
+      currency: d.currency === "USD" ? "USD" : "UZS",
+      deadline: d.deadline ?? null,
+      note: (d.note ?? "").slice(0, 200),
+    },
+  });
+}
+
+// Jamg'armaga pul qo'shish (hisobdan chiqadi) yoki yechish (hisobga qaytadi).
+export async function saveToGoal(
+  userId: string,
+  goalId: string,
+  d: { amount: number; accountId: string; withdraw?: boolean; date?: Date; note?: string; source?: string },
+) {
+  if (!(d.amount > 0)) throw new Error("errAmount");
+  const goal = (await getGoals(userId)).find((g) => g.id === goalId);
+  if (!goal) throw new Error("errGoal");
+  const account = await prisma.account.findFirst({ where: { id: d.accountId, userId } });
+  if (!account) throw new Error("errAccount");
+  if (account.currency !== goal.currency) throw new Error("errDebtCurrency");
+  if (d.withdraw && d.amount > goal.saved + 0.005) throw new Error(`errGoalOver|${goal.saved}`);
+
+  await createTx(userId, {
+    type: d.withdraw ? "SAVING_OUT" : "SAVING_IN",
+    amount: d.amount,
+    accountId: account.id,
+    goalId: goal.id,
+    note: d.note,
+    date: d.date,
+    source: d.source,
   });
 }

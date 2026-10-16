@@ -1,10 +1,11 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { debtLeft, getAccounts, getCredits, monthStats, trends } from "@/lib/finance";
+import { debtLeft, getAccounts, getCredits, getGoals, monthStats, trends } from "@/lib/finance";
 import { dayStr, monthLabel, shiftYm, shortDay, todayStr, validYm } from "@/lib/dates";
 import { change, fmt, pct } from "@/lib/format";
 import { fill, tn } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
+import { Goals } from "@/components/Goals";
 import { QuickEntry } from "@/components/QuickEntry";
 import { TrendChart } from "@/components/TrendChart";
 import { TxRow, TX_INCLUDE } from "@/components/TxRow";
@@ -17,7 +18,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { m?: 
   const t = getT();
   const ym = validYm(searchParams.m);
   const prevYm = shiftYm(ym, -1);
-  const [accounts, stats, prev, trend, categories, recent, debts, credits] = await Promise.all([
+  const [accounts, stats, prev, trend, categories, recent, debts, credits, goals] = await Promise.all([
     getAccounts(user.id),
     monthStats(user.id, ym),
     monthStats(user.id, prevYm),
@@ -26,6 +27,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { m?: 
     prisma.transaction.findMany({ where: { userId: user.id }, orderBy: { date: "desc" }, take: 7, include: TX_INCLUDE }),
     prisma.debt.findMany({ where: { userId: user.id, status: "OPEN" }, orderBy: { dueDate: "asc" } }),
     getCredits(user.id),
+    getGoals(user.id),
   ]);
 
   const uzs = accounts.filter((a) => a.currency === "UZS").reduce((s, a) => s + a.balance, 0);
@@ -152,6 +154,11 @@ export default async function Dashboard({ searchParams }: { searchParams: { m?: 
                 </li>
               ))}
             </ul>
+          </section>
+
+          <section className="card">
+            <CardHead title={`🎯 ${t.goalsTitle}`} href="/transactions" link={t.all} />
+            <Goals goals={goals.slice(0, 4)} t={t} compact />
           </section>
 
           <section className="card">
