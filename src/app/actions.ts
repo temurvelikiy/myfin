@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, requireUser } from "@/lib/auth";
@@ -8,6 +9,8 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { createDebt, createTx, describeParsed, getAccounts, saveParsed } from "@/lib/finance";
 import { parseEntry } from "@/lib/parse";
 import { parseDay, validDay, validYm } from "@/lib/dates";
+import { fill, isLang, tMsg, type Dict } from "@/lib/i18n";
+import { getT, LANG_COOKIE } from "@/lib/lang";
 
 export type State = { error?: string; ok?: string; at?: number };
 
@@ -20,7 +23,24 @@ const done = (ok: string): State => {
   revalidatePath("/", "layout");
   return { ok, at: Date.now() };
 };
-const fail = (e: unknown): State => ({ error: e instanceof Error ? e.message : "Xatolik yuz berdi", at: Date.now() });
+// Xato matni tarjima kaliti bo'lsa ("errAmount"), joriy tilga o'giriladi.
+const fail = (e: unknown): State => {
+  const t = getT();
+  return { error: e instanceof Error ? tMsg(t, e.message) : t.genericError, at: Date.now() };
+};
+type MsgKey = { [K in keyof Dict]: Dict[K] extends string ? K : never }[keyof Dict];
+const err = (key: MsgKey, vars: Record<string, string | number> = {}): State => ({
+  error: fill(getT()[key], vars),
+  at: Date.now(),
+});
+
+// ---------- Til ----------
+
+export async function setLang(lang: string) {
+  if (!isLang(lang)) return;
+  cookies().set(LANG_COOKIE, lang, { path: "/", maxAge: 365 * 864e2, sameSite: "lax" });
+  revalidatePath("/", "layout");
+}
 
 // ---------- Kirish ----------
 
@@ -32,12 +52,12 @@ export async function login(_: State, fd: FormData): Promise<State> {
   const password = String(fd.get("password") ?? "");
   const now = Date.now();
   const a = attempts.get(name);
-  if (a && a.until > now && a.n >= 5) return { error: "Juda ko'p urinish. 15 daqiqadan keyin qayta urinib ko'ring." };
+  if (a && a.until > now && a.n >= 5) return err("tooManyAttempts");
 
   const user = await prisma.user.findUnique({ where: { login: name } });
   if (!user || !verifyPassword(password, user.passwordHash)) {
     attempts.set(name, { n: (a && a.until > now ? a.n : 0) + 1, until: now + 15 * 60e3 });
-    return { error: "Login yoki parol noto'g'ri" };
+    return err("wrongLogin");
   }
   attempts.delete(name);
   await createSession(user.id);
@@ -52,14 +72,14 @@ export async function logout() {
 export async function changePassword(_: State, fd: FormData): Promise<State> {
   const user = await requireUser();
   const next = String(fd.get("next") ?? "");
-  if (!verifyPassword(String(fd.get("current") ?? ""), user.passwordHash)) return { error: "Joriy parol noto'g'ri" };
-  if (next.length < 8) return { error: "Yangi parol kamida 8 belgi bo'lsin" };
-  if (next !== String(fd.get("repeat") ?? "")) return { error: "Parollar mos kelmadi" };
+  if (!verifyPassword(String(fd.get("current") ?? ""), user.passwordHash)) return err("wrongCurrentPassword");
+  if (next.length < 8) return err("passwordMin");
+  if (next !== String(fd.get("repeat") ?? "")) return err("passwordMismatch");
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hashPassword(next) } });
   // Boshqa qurilmalardagi sessiyalar yopiladi, joriysi yangilanadi.
   await prisma.session.deleteMany({ where: { userId: user.id } });
   await createSession(user.id);
-  return done("Parol yangilandi");
+  return done(getT().passwordUpdated);
 }
 
 // ---------- Tezkor kiritish ----------
@@ -75,14 +95,16 @@ async function parseFor(userId: string, text: string) {
 export async function previewQuick(text: string) {
   const user = await requireUser();
   const { accounts, categories, parsed } = await parseFor(user.id, text);
-  if ("error" in parsed) return { error: parsed.error };
-  return { parsed, summary: describeParsed(parsed, accounts, categories) };
+  const t = getT();
+  if ("error" in parsed) return { error: fill(tMsg(t, parsed.error), parsed.vars ?? {}) };
+  return { parsed, summary: describeParsed(parsed, accounts, categories, t) };
 }
 
 export async function confirmQuick(text: string, accountId?: string, categoryId?: string) {
   const user = await requireUser();
   const { accounts, categories, parsed } = await parseFor(user.id, text);
-  if ("error" in parsed) return { error: parsed.error };
+  const t = getT();
+  if ("error" in parsed) return { error: fill(tMsg(t, parsed.error), parsed.vars ?? {}) };
   const acc = accounts.find((a) => a.id === accountId);
   if (acc && parsed.type !== "TRANSFER") {
     parsed.accountId = acc.id;
@@ -90,9 +112,9 @@ export async function confirmQuick(text: string, accountId?: string, categoryId?
   }
   if (categories.some((c) => c.id === categoryId && c.kind === parsed.type)) parsed.categoryId = categoryId;
   try {
-    const { warning } = await saveParsed(user.id, parsed, "WEB");
+    const { warning } = await saveParsed(user.id, parsed, "WEB", t);
     revalidatePath("/", "layout");
-    return { ok: describeParsed(parsed, accounts, categories), warning };
+    return { ok: describeParsed(parsed, accounts, categories, t), warning };
   } catch (e) {
     return { error: fail(e).error };
   }
@@ -132,7 +154,7 @@ export async function addTransaction(_: State, fd: FormData): Promise<State> {
   } catch (e) {
     return fail(e);
   }
-  return done("Saqlandi");
+  return done(getT().saved);
 }
 
 export async function deleteTransaction(fd: FormData) {
@@ -148,7 +170,7 @@ export async function saveAccount(_: State, fd: FormData): Promise<State> {
   const id = str(fd.get("id"));
   const name = str(fd.get("name"), 40);
   const initial = num(fd.get("initial"));
-  if (!name) return { error: "Nomini kiriting" };
+  if (!name) return err("enterName");
   const data = {
     name,
     keywords: str(fd.get("keywords"), 120).toLowerCase(),
@@ -158,7 +180,7 @@ export async function saveAccount(_: State, fd: FormData): Promise<State> {
   let currency: string;
   if (id) {
     const acc = await prisma.account.findFirst({ where: { id, userId: user.id } });
-    if (!acc) return { error: "Hisob topilmadi" };
+    if (!acc) return err("errAccount");
     currency = acc.currency;
     await prisma.account.update({ where: { id }, data });
   } else {
@@ -173,7 +195,7 @@ export async function saveAccount(_: State, fd: FormData): Promise<State> {
       where: { userId: user.id, currency, id: { not: str(fd.get("id")) } },
       data: { isDefault: false },
     });
-  return done("Saqlandi");
+  return done(getT().saved);
 }
 
 export async function archiveAccount(fd: FormData) {
@@ -189,11 +211,12 @@ export async function archiveAccount(fd: FormData) {
 export async function reconcileAccount(_: State, fd: FormData): Promise<State> {
   const user = await requireUser();
   const real = num(fd.get("real"));
-  if (!Number.isFinite(real)) return { error: "Real qoldiqni kiriting" };
+  if (!Number.isFinite(real)) return err("enterRealBalance");
   const acc = (await getAccounts(user.id, true)).find((a) => a.id === str(fd.get("id")));
-  if (!acc) return { error: "Hisob topilmadi" };
+  if (!acc) return err("errAccount");
   const diff = Math.round((real - acc.balance) * 100) / 100;
-  if (diff === 0) return done("Farq yo'q — qoldiq to'g'ri ✅");
+  const t = getT();
+  if (diff === 0) return done(t.noDiff);
   const type = diff > 0 ? "INCOME" : "EXPENSE";
   const cat = await prisma.category.upsert({
     where: { userId_name_kind: { userId: user.id, name: "Tuzatish", kind: type } },
@@ -201,12 +224,12 @@ export async function reconcileAccount(_: State, fd: FormData): Promise<State> {
     create: { userId: user.id, name: "Tuzatish", kind: type, icon: "⚖️" },
   });
   try {
-    await createTx(user.id, { type, amount: Math.abs(diff), accountId: acc.id, categoryId: cat.id, note: "Qoldiqni solishtirish" });
+    await createTx(user.id, { type, amount: Math.abs(diff), accountId: acc.id, categoryId: cat.id, note: t.reconcileNote });
   } catch (e) {
     return fail(e);
   }
   const share = acc.balance ? ` (${Math.abs((diff / acc.balance) * 100).toFixed(1)}%)` : "";
-  return done(`Farq ${diff > 0 ? "+" : "−"}${Math.abs(diff)} ${acc.currency}${share} tuzatish sifatida yozildi`);
+  return done(fill(t.diffRecorded, { v: `${diff > 0 ? "+" : "−"}${Math.abs(diff)} ${acc.currency}`, s: share }));
 }
 
 // ---------- Limitlar ----------
@@ -226,7 +249,7 @@ export async function saveBudgets(_: State, fd: FormData): Promise<State> {
       create: { userId: user.id, categoryId: c.id, month, limit },
     });
   }
-  return done("Limitlar saqlandi");
+  return done(getT().limitsSaved);
 }
 
 // ---------- Qarzlar ----------
@@ -247,27 +270,27 @@ export async function addDebt(_: State, fd: FormData): Promise<State> {
   } catch (e) {
     return fail(e);
   }
-  return done("Qarz yozildi");
+  return done(getT().debtRecorded);
 }
 
 export async function closeDebt(_: State, fd: FormData): Promise<State> {
   const user = await requireUser();
   const debt = await prisma.debt.findFirst({ where: { id: str(fd.get("id")), userId: user.id, status: "OPEN" } });
-  if (!debt) return { error: "Qarz topilmadi" };
+  if (!debt) return err("debtNotFound");
   const accountId = str(fd.get("accountId"));
   if (accountId) {
     const acc = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
-    if (!acc || acc.currency !== debt.currency) return { error: `${debt.currency} hisobini tanlang` };
+    if (!acc || acc.currency !== debt.currency) return err("chooseCurrencyAccount", { c: debt.currency });
     await createTx(user.id, {
       type: debt.direction === "GIVEN" ? "DEBT_IN" : "DEBT_OUT",
       amount: debt.amount,
       accountId,
-      note: `Qarz qaytdi: ${debt.person}`,
+      note: debt.person,
       debtId: debt.id,
     });
   }
   await prisma.debt.update({ where: { id: debt.id }, data: { status: "CLOSED", closedAt: new Date() } });
-  return done("Qarz yopildi");
+  return done(getT().debtClosed);
 }
 
 export async function deleteDebt(fd: FormData) {
@@ -286,33 +309,33 @@ export async function saveSettings(_: State, fd: FormData): Promise<State> {
   const usdRate = num(fd.get("usdRate"));
   const savingsTarget = Math.round(num(fd.get("savingsTarget")));
   const telegramId = str(fd.get("telegramId"), 20) || null;
-  if (!(usdRate > 0)) return { error: "Kurs noto'g'ri" };
-  if (!(savingsTarget >= 0 && savingsTarget <= 100)) return { error: "Jamg'arma maqsadi 0–100% oralig'ida bo'lsin" };
-  if (telegramId && !/^\d{4,15}$/.test(telegramId)) return { error: "Telegram ID faqat raqamlardan iborat" };
+  if (!(usdRate > 0)) return err("invalidRate");
+  if (!(savingsTarget >= 0 && savingsTarget <= 100)) return err("savingsRange");
+  if (telegramId && !/^\d{4,15}$/.test(telegramId)) return err("telegramDigits");
   if (telegramId && (await prisma.user.findFirst({ where: { telegramId, id: { not: user.id } } })))
-    return { error: "Bu Telegram ID boshqa foydalanuvchiga ulangan" };
+    return err("telegramTaken");
   await prisma.user.update({ where: { id: user.id }, data: { usdRate, savingsTarget, telegramId } });
-  return done("Saqlandi");
+  return done(getT().saved);
 }
 
 export async function saveCategory(_: State, fd: FormData): Promise<State> {
   const user = await requireUser();
   const id = str(fd.get("id"));
   const name = str(fd.get("name"), 40);
-  if (!name) return { error: "Nomini kiriting" };
+  if (!name) return err("enterName");
   const data = { name, icon: str(fd.get("icon"), 8) || "📦", keywords: str(fd.get("keywords"), 300).toLowerCase() };
   try {
     if (id) {
       const r = await prisma.category.updateMany({ where: { id, userId: user.id }, data });
-      if (!r.count) return { error: "Kategoriya topilmadi" };
+      if (!r.count) return err("categoryNotFound");
     } else {
       const kind = fd.get("kind") === "INCOME" ? "INCOME" : "EXPENSE";
       await prisma.category.create({ data: { ...data, userId: user.id, kind } });
     }
   } catch {
-    return { error: "Bunday nomli kategoriya bor" };
+    return err("categoryExists");
   }
-  return done("Saqlandi");
+  return done(getT().saved);
 }
 
 export async function archiveCategory(fd: FormData) {

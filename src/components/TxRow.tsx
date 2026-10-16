@@ -1,7 +1,8 @@
 import { deleteTransaction } from "@/app/actions";
 import { shortDay } from "@/lib/dates";
-import { TYPE_LABEL } from "@/lib/finance";
+import { typeLabel } from "@/lib/finance";
 import { fmt } from "@/lib/format";
+import { tn, type Dict } from "@/lib/i18n";
 
 export type TxView = {
   id: string;
@@ -17,10 +18,10 @@ export type TxView = {
   category: { name: string; icon: string } | null;
 };
 
-export function TxRow({ t, withDelete }: { t: TxView; withDelete?: boolean }) {
+export function TxRow({ tx: t, d, withDelete }: { tx: TxView; d: Dict; withDelete?: boolean }) {
   const plus = t.type === "INCOME" || t.type === "DEBT_IN";
   const moving = t.type === "TRANSFER" || t.type === "EXCHANGE";
-  const title = t.category ? `${t.category.icon} ${t.category.name}` : TYPE_LABEL[t.type];
+  const title = t.category ? `${t.category.icon} ${tn(d, t.category.name)}` : typeLabel(d)[t.type];
   return (
     <li className="flex items-center gap-3 py-2 text-sm">
       <span className="num w-10 shrink-0 text-xs text-slate-400">{shortDay(t.date)}</span>
@@ -31,7 +32,7 @@ export function TxRow({ t, withDelete }: { t: TxView; withDelete?: boolean }) {
           {t.source === "BOT" && <span className="ml-1 text-[10px] text-slate-400">bot</span>}
         </p>
         <p className="truncate text-xs text-slate-400">
-          {moving ? `${t.account.name} → ${t.toAccount?.name}` : t.account.name}
+          {moving ? `${tn(d, t.account.name)} → ${tn(d, t.toAccount?.name ?? "")}` : tn(d, t.account.name)}
           {t.note && ` · ${t.note}`}
         </p>
       </div>
@@ -43,7 +44,7 @@ export function TxRow({ t, withDelete }: { t: TxView; withDelete?: boolean }) {
       {withDelete && (
         <form action={deleteTransaction}>
           <input type="hidden" name="id" value={t.id} />
-          <button className="rounded px-1.5 text-slate-300 hover:bg-red-50 hover:text-red-600" title="O'chirish" aria-label="O'chirish">
+          <button className="rounded px-1.5 text-slate-300 hover:bg-red-50 hover:text-red-600" title={d.delete} aria-label={d.delete}>
             ✕
           </button>
         </form>

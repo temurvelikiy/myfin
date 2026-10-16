@@ -1,10 +1,8 @@
 // Barcha "kun" va "oy" chegaralari Toshkent vaqti (UTC+5) bo'yicha hisoblanadi.
-const OFF = 5 * 3600e3;
+import { DICTS, fill, type Dict } from "./i18n";
 
-const MONTHS = [
-  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
-  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
-];
+const OFF = 5 * 3600e3;
+const UZ = DICTS.uz;
 
 export const dayStr = (d: Date) => new Date(d.getTime() + OFF).toISOString().slice(0, 10);
 export const todayStr = () => dayStr(new Date());
@@ -26,9 +24,9 @@ export function shiftYm(ym: string, delta: number) {
   return new Date(Date.UTC(y, m - 1 + delta, 1)).toISOString().slice(0, 7);
 }
 
-export function monthLabel(ym: string) {
+export function monthLabel(ym: string, t: Dict = UZ) {
   const [y, m] = ym.split("-").map(Number);
-  return `${MONTHS[m - 1]} ${y}`;
+  return `${t.months[m - 1]} ${y}`;
 }
 
 export const validDay = (s?: string | null) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -43,8 +41,6 @@ export function shortDay(d: Date) {
   const [, m, day] = dayStr(d).split("-");
   return `${day}.${m}`;
 }
-
-const WEEKDAYS = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
 
 export function addDays(day: string, n: number) {
   const d = new Date(`${day}T00:00:00Z`);
@@ -63,10 +59,10 @@ export const dayRange = (day: string) => ({
   end: new Date(`${addDays(day, 1)}T00:00:00+05:00`),
 });
 
-export const monthShort = (ym: string) => MONTHS[Number(ym.slice(5, 7)) - 1].slice(0, 3);
+export const monthShort = (ym: string, t: Dict = UZ) => t.months[Number(ym.slice(5, 7)) - 1].slice(0, 3);
 
-// "2026-09-30" -> "30-sentabr, Chorshanba"
-export function dayLabel(day: string) {
+// "2026-09-30" -> "30-sentabr, Chorshanba" (til shabloniga ko'ra)
+export function dayLabel(day: string, t: Dict = UZ) {
   const d = new Date(`${day}T00:00:00Z`);
-  return `${d.getUTCDate()}-${MONTHS[d.getUTCMonth()].toLowerCase()}, ${WEEKDAYS[d.getUTCDay()]}`;
+  return fill(t.dayLabelFmt, { d: d.getUTCDate(), m: t.monthsGen[d.getUTCMonth()], w: t.weekdays[d.getUTCDay()] });
 }

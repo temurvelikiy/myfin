@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { confirmQuick, previewQuick } from "@/app/actions";
 import type { Parsed } from "@/lib/parse";
+import { useT } from "./I18n";
 
 type Acc = { id: string; name: string };
 type Cat = { id: string; name: string; icon: string; kind: string };
@@ -16,6 +17,7 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
   const [msg, setMsg] = useState<{ error?: string; ok?: string; warning?: string | null }>({});
   const [pending, start] = useTransition();
   const input = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   const preview = () =>
     start(async () => {
@@ -41,7 +43,7 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
 
   return (
     <div className="card">
-      <h2 className="h2">⚡ Tezkor kiritish</h2>
+      <h2 className="h2">{t.quickEntry}</h2>
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -53,7 +55,7 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
         <input
           ref={input}
           className="input"
-          placeholder="45000 taksi   ·   #biz 500000 reklama   ·   +5000000 maosh"
+          placeholder={t.quickPlaceholder}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -63,7 +65,7 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
         />
         {!draft && (
           <button className="btn shrink-0" disabled={pending || !text.trim()}>
-            Yozish
+            {t.write}
           </button>
         )}
       </form>
@@ -73,7 +75,7 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
           <p className="text-sm font-medium">{draft.summary}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {draft.parsed.type !== "TRANSFER" && (
-              <select className="input w-auto" value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label="Hisob">
+              <select className="input w-auto" value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label={t.account}>
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -82,7 +84,7 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
               </select>
             )}
             {editable && (
-              <select className="input w-auto" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label="Kategoriya">
+              <select className="input w-auto" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label={t.category}>
                 {categories
                   .filter((c) => c.kind === draft.parsed.type)
                   .map((c) => (
@@ -93,20 +95,20 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
               </select>
             )}
             <button className="btn" onClick={confirm} disabled={pending} autoFocus>
-              ✅ Tasdiqlash
+              {t.confirm}
             </button>
             <button className="btn-ghost" onClick={() => setDraft(null)} disabled={pending}>
-              Bekor
+              {t.cancel}
             </button>
           </div>
         </div>
       )}
 
       {msg.error && <p className="mt-2 text-sm text-red-600">{msg.error}</p>}
-      {msg.ok && <p className="mt-2 text-sm text-emerald-700">✅ Saqlandi: {msg.ok}</p>}
+      {msg.ok && <p className="mt-2 text-sm text-emerald-700">{t.savedPrefix} {msg.ok}</p>}
       {msg.warning && <p className="mt-1 text-sm font-medium text-amber-700">{msg.warning}</p>}
       <p className="mt-2 text-xs text-slate-400">
-        O&apos;tkazma: <code>500000 humo &gt; naqd</code> · Qarz: <code>qarz 200000 Ali 15.10</code> · Dollar: <code>20$ kitob</code>
+        {t.hintTransfer}: <code>{t.exTransfer}</code> · {t.hintDebt}: <code>{t.exDebt}</code> · {t.hintDollar}: <code>{t.exDollar}</code>
       </p>
     </div>
   );

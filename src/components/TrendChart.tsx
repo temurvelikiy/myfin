@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import type { Bucket } from "@/lib/finance";
 import { change, fmt, fmtShort } from "@/lib/format";
 import { Delta } from "./ui";
+import { useT } from "./I18n";
 
 const TABS = [
-  ["days", "Kunlar", "Bugun", "kechagiga"],
-  ["weeks", "Haftalar", "Bu hafta", "o'tgan haftaga"],
-  ["months", "Oylar", "Bu oy", "o'tgan oyga"],
+  ["days", "tabDays", "nowDay", "vsDay"],
+  ["weeks", "tabWeeks", "nowWeek", "vsWeek"],
+  ["months", "tabMonths", "nowMonth", "vsPrevMonth"],
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
@@ -39,6 +40,7 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
   const [hover, setHover] = useState<number | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(640);
+  const t = useT();
 
   useEffect(() => {
     const el = wrap.current;
@@ -49,7 +51,8 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
   }, []);
 
   const rows = data[tab];
-  const [, , nowLabel, prevLabel] = TABS.find((t) => t[0] === tab)!;
+  const [, , nowKey, vsKey] = TABS.find((x) => x[0] === tab)!;
+  const nowLabel = t[nowKey];
   const cur = rows[rows.length - 1];
   const prev = rows[rows.length - 2];
   const empty = rows.every((r) => !r.income && !r.expense);
@@ -66,19 +69,19 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
   const tipX = hover !== null ? PAD.l + band * (hover + 0.5) : 0;
 
   const figures = [
-    { label: "Daromad", color: INCOME, value: cur.income, delta: change(cur.income, prev.income), upIsGood: true },
-    { label: "Xarajat", color: EXPENSE, value: cur.expense, delta: change(cur.expense, prev.expense), upIsGood: false },
+    { label: t.income, color: INCOME, value: cur.income, delta: change(cur.income, prev.income), upIsGood: true },
+    { label: t.expense, color: EXPENSE, value: cur.expense, delta: change(cur.expense, prev.expense), upIsGood: false },
   ];
   const net = cur.income - cur.expense;
 
   return (
     <section className="card">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-slate-800">Daromad va xarajat dinamikasi</h2>
+        <h2 className="text-sm font-semibold text-slate-800">{t.trendTitle}</h2>
         <div className="seg">
-          {TABS.map(([v, label]) => (
+          {TABS.map(([v, key]) => (
             <button key={v} type="button" aria-pressed={tab === v} onClick={() => (setTab(v), setHover(null))}>
-              {label}
+              {t[key]}
             </button>
           ))}
         </div>
@@ -94,32 +97,32 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
             <p className="num mt-0.5 text-lg font-bold">{fmt(f.value)}</p>
             <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
               <Delta value={f.delta} upIsGood={f.upIsGood} />
-              {f.delta === null ? "solishtirishga ma'lumot yo'q" : `${prevLabel} nisbatan`}
+              {f.delta === null ? t.noCompare : t[vsKey]}
             </p>
           </div>
         ))}
         <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-          <p className="text-xs text-slate-500">{nowLabel} · farq</p>
+          <p className="text-xs text-slate-500">{nowLabel} · {t.difference.toLowerCase()}</p>
           <p className="num mt-0.5 text-lg font-bold">
             {net > 0 ? "+" : ""}
             {fmt(net)}
           </p>
-          <p className="text-[11px] text-slate-400">{net >= 0 ? "Daromad xarajatdan ko'p" : "Xarajat daromaddan ko'p"}</p>
+          <p className="text-[11px] text-slate-400">{net >= 0 ? t.incomeMore : t.expenseMore}</p>
         </div>
       </div>
 
       <div className="mt-4 flex items-center gap-4 text-xs text-slate-600">
-        <span className="flex items-center gap-1.5"><Swatch color={INCOME} /> Daromad</span>
-        <span className="flex items-center gap-1.5"><Swatch color={EXPENSE} /> Xarajat</span>
+        <span className="flex items-center gap-1.5"><Swatch color={INCOME} /> {t.income}</span>
+        <span className="flex items-center gap-1.5"><Swatch color={EXPENSE} /> {t.expense}</span>
       </div>
 
       <div ref={wrap} className="relative mt-2" onMouseLeave={() => setHover(null)}>
-        <svg width="100%" height={H} role="img" aria-label="Daromad va xarajat ustunli grafigi">
-          {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-            <g key={t}>
-              <line x1={PAD.l} x2={PAD.l + iw} y1={y(max * t)} y2={y(max * t)} stroke={t === 0 ? "#cbd5e1" : "#eef2f6"} />
-              <text x={PAD.l - 8} y={y(max * t) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">
-                {t === 0 ? "0" : fmtShort(max * t)}
+        <svg width="100%" height={H} role="img" aria-label={t.chartAria}>
+          {[0, 0.25, 0.5, 0.75, 1].map((v) => (
+            <g key={v}>
+              <line x1={PAD.l} x2={PAD.l + iw} y1={y(max * v)} y2={y(max * v)} stroke={v === 0 ? "#cbd5e1" : "#eef2f6"} />
+              <text x={PAD.l - 8} y={y(max * v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">
+                {v === 0 ? "0" : fmtShort(max * v, t)}
               </text>
             </g>
           ))}
@@ -143,7 +146,7 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
 
         {empty && (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-400">
-            Bu davrda hali amal yo&apos;q
+            {t.noTxPeriod}
           </p>
         )}
 
@@ -154,30 +157,30 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
           >
             <p className="mb-1 font-semibold text-slate-800">{h.full}</p>
             <p className="flex items-center justify-between gap-4 text-slate-600">
-              <span className="flex items-center gap-1.5"><Swatch color={INCOME} /> Daromad</span>
+              <span className="flex items-center gap-1.5"><Swatch color={INCOME} /> {t.income}</span>
               <b className="num text-slate-900">{fmt(h.income)}</b>
             </p>
             <p className="flex items-center justify-between gap-4 text-slate-600">
-              <span className="flex items-center gap-1.5"><Swatch color={EXPENSE} /> Xarajat</span>
+              <span className="flex items-center gap-1.5"><Swatch color={EXPENSE} /> {t.expense}</span>
               <b className="num text-slate-900">{fmt(h.expense)}</b>
             </p>
             <p className="mt-1 flex justify-between gap-4 border-t border-slate-100 pt-1 text-slate-600">
-              Farq <b className="num text-slate-900">{h.income - h.expense > 0 ? "+" : ""}{fmt(h.income - h.expense)}</b>
+              {t.difference} <b className="num text-slate-900">{h.income - h.expense > 0 ? "+" : ""}{fmt(h.income - h.expense)}</b>
             </p>
           </div>
         )}
       </div>
 
       <details className="mt-2 text-xs text-slate-500">
-        <summary className="cursor-pointer hover:text-slate-700">Jadval ko&apos;rinishida</summary>
+        <summary className="cursor-pointer hover:text-slate-700">{t.tableView}</summary>
         <div className="mt-2 max-h-64 overflow-auto">
           <table className="num w-full">
             <thead className="sticky top-0 bg-white text-left text-slate-400">
               <tr>
-                <th className="py-1 font-medium">Davr</th>
-                <th className="py-1 text-right font-medium">Daromad</th>
-                <th className="py-1 text-right font-medium">Xarajat</th>
-                <th className="py-1 text-right font-medium">Farq</th>
+                <th className="py-1 font-medium">{t.period}</th>
+                <th className="py-1 text-right font-medium">{t.income}</th>
+                <th className="py-1 text-right font-medium">{t.expense}</th>
+                <th className="py-1 text-right font-medium">{t.difference}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">

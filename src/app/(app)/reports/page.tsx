@@ -3,10 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { monthStats } from "@/lib/finance";
 import { dayStr, monthLabel, monthRange, shiftYm, validYm } from "@/lib/dates";
 import { fmt, group, pct } from "@/lib/format";
+import { fill, tn } from "@/lib/i18n";
+import { getT } from "@/lib/lang";
 import { Empty, MonthNav, Stat } from "@/components/ui";
 
 export default async function Reports({ searchParams }: { searchParams: { m?: string } }) {
   const user = await requireUser();
+  const t = getT();
   const ym = validYm(searchParams.m);
   const prevYm = shiftYm(ym, -1);
   const { start, end } = monthRange(ym);
@@ -25,46 +28,46 @@ export default async function Reports({ searchParams }: { searchParams: { m?: st
 
   const days = Math.round((end.getTime() - start.getTime()) / 864e5);
   const daily = Array.from({ length: days }, () => 0);
-  for (const t of txs) daily[Number(dayStr(t.date).slice(8)) - 1] += t.amountBase;
+  for (const tx of txs) daily[Number(dayStr(tx.date).slice(8)) - 1] += tx.amountBase;
   const dayMax = Math.max(...daily, 1);
 
   const delta = prev.expense > 0 ? Math.round(((stats.expense - prev.expense) / prev.expense) * 100) : null;
   const onTarget = stats.savingsRate >= user.savingsTarget;
-  const botShare = pct(txs.filter((t) => t.source === "BOT").length, txs.length);
+  const botShare = pct(txs.filter((tx) => tx.source === "BOT").length, txs.length);
 
   return (
     <>
-      <MonthNav ym={ym} path="/reports" title="Oylik hisobot" />
+      <MonthNav ym={ym} path="/reports" title={t.reportTitle} t={t} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Daromad" value={fmt(stats.income)} tone="good" hint={`O'tgan oy: ${fmt(prev.income)}`} />
+        <Stat label={t.income} value={fmt(stats.income)} tone="good" hint={fill(t.prevMonthAmount, { v: fmt(prev.income) })} />
         <Stat
-          label="Xarajat"
+          label={t.expense}
           value={fmt(stats.expense)}
           tone="bad"
-          hint={delta === null ? "O'tgan oyda xarajat yo'q" : `O'tgan oyga nisbatan ${delta > 0 ? "+" : ""}${delta}%`}
+          hint={delta === null ? t.noExpensePrev : fill(t.vsPrevPct, { v: `${delta > 0 ? "+" : ""}${delta}` })}
         />
         <Stat
-          label="Jamg'arma"
+          label={t.savings}
           value={stats.income > 0 ? `${stats.savingsRate}%` : "—"}
           tone={stats.income > 0 ? (onTarget ? "good" : "bad") : undefined}
-          hint={`${fmt(stats.saved)} · maqsad ${user.savingsTarget}%`}
+          hint={fill(t.goalHint, { v: fmt(stats.saved), n: user.savingsTarget })}
         />
         <Stat
-          label="Limitdan oshgan kategoriyalar"
-          value={`${stats.overLimit.length} ta`}
+          label={t.overLimitCount}
+          value={fill(t.countUnit, { n: stats.overLimit.length })}
           tone={stats.overLimit.length >= 2 ? "bad" : "good"}
-          hint="Maqsad: oyiga 2 tadan kam"
+          hint={t.goalLess2}
         />
       </div>
 
       {stats.overLimit.length > 0 && (
         <section className="card border-red-200 bg-red-50">
-          <h2 className="h2 text-red-700">🚨 Limitdan oshganlar</h2>
+          <h2 className="h2 text-red-700">{t.overLimitTitle}</h2>
           <ul className="space-y-1 text-sm">
             {stats.overLimit.map((c) => (
               <li key={c.id} className="flex justify-between gap-2">
-                <span>{c.icon} {c.name}</span>
+                <span>{c.icon} {tn(t, c.name)}</span>
                 <span className="num">
                   {fmt(c.spent)} / {fmt(c.limit)} · <b className="text-red-700">+{fmt(c.spent - c.limit)}</b>
                 </span>
@@ -75,7 +78,7 @@ export default async function Reports({ searchParams }: { searchParams: { m?: st
       )}
 
       <section className="card">
-        <h2 className="h2">Pul qayerga ketdi</h2>
+        <h2 className="h2">{t.whereMoney}</h2>
         {cats.length ? (
           <div className="space-y-3">
             {cats.map((c) => {
@@ -83,10 +86,10 @@ export default async function Reports({ searchParams }: { searchParams: { m?: st
               return (
                 <div key={c.id}>
                   <div className="flex flex-wrap justify-between gap-x-3 text-sm">
-                    <span>{c.icon} {c.name} <span className="text-xs text-slate-400">{pct(c.spent, stats.expense)}%</span></span>
+                    <span>{c.icon} {tn(t, c.name)} <span className="text-xs text-slate-400">{pct(c.spent, stats.expense)}%</span></span>
                     <span className="num">
                       <b>{fmt(c.spent)}</b>
-                      <span className="ml-2 text-xs text-slate-400">o&apos;tgan oy {group(Math.round(before))}</span>
+                      <span className="ml-2 text-xs text-slate-400">{fill(t.prevMonthShort, { v: group(Math.round(before)) })}</span>
                     </span>
                   </div>
                   {/* Yashil — shaxsiy, binafsha — biznes */}
@@ -99,52 +102,52 @@ export default async function Reports({ searchParams }: { searchParams: { m?: st
             })}
           </div>
         ) : (
-          <Empty>Bu oyda xarajat yo&apos;q</Empty>
+          <Empty>{t.noExpenseMonth}</Empty>
         )}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card">
-          <h2 className="h2">Shaxsiy va biznes</h2>
+          <h2 className="h2">{t.personalAndBusiness}</h2>
           <table className="w-full text-sm">
             <thead className="text-xs text-slate-500">
               <tr>
                 <th className="pb-1 text-left font-medium" />
-                <th className="pb-1 text-right font-medium">{monthLabel(ym)}</th>
-                <th className="pb-1 text-right font-medium">{monthLabel(prevYm)}</th>
+                <th className="pb-1 text-right font-medium">{monthLabel(ym, t)}</th>
+                <th className="pb-1 text-right font-medium">{monthLabel(prevYm, t)}</th>
               </tr>
             </thead>
             <tbody className="num divide-y divide-slate-100">
               <tr>
-                <td className="py-1.5">🟢 Shaxsiy xarajat</td>
+                <td className="py-1.5">{t.personalExpense}</td>
                 <td className="text-right">{fmt(stats.personal)}</td>
                 <td className="text-right text-slate-500">{fmt(prev.personal)}</td>
               </tr>
               <tr>
-                <td className="py-1.5">🟣 Biznes xarajat</td>
+                <td className="py-1.5">{t.businessExpense}</td>
                 <td className="text-right">{fmt(stats.business)}</td>
                 <td className="text-right text-slate-500">{fmt(prev.business)}</td>
               </tr>
               <tr>
-                <td className="py-1.5">Biznes daromad</td>
+                <td className="py-1.5">{t.businessIncome}</td>
                 <td className="text-right">{fmt(stats.businessIncome)}</td>
                 <td className="text-right text-slate-500">{fmt(prev.businessIncome)}</td>
               </tr>
               <tr className="font-medium">
-                <td className="py-1.5">Biznes natijasi</td>
+                <td className="py-1.5">{t.businessResult}</td>
                 <td className="text-right">{fmt(stats.businessIncome - stats.business)}</td>
                 <td className="text-right text-slate-500">{fmt(prev.businessIncome - prev.business)}</td>
               </tr>
             </tbody>
           </table>
-          <p className="mt-2 text-xs text-slate-400">Biznes daromadi — «Biznes» belgisi bilan kiritilgan daromadlar.</p>
+          <p className="mt-2 text-xs text-slate-400">{t.businessIncomeHint}</p>
         </section>
 
         <section className="card">
-          <h2 className="h2">Kunlik xarajat</h2>
+          <h2 className="h2">{t.dailyExpense}</h2>
           <div className="flex h-32 items-end gap-px">
             {daily.map((v, i) => (
-              <div key={i} className="flex-1 rounded-t bg-emerald-500/80 hover:bg-emerald-600" style={{ height: `${Math.max((v / dayMax) * 100, v > 0 ? 3 : 0)}%` }} title={`${i + 1}-kun: ${fmt(v)}`} />
+              <div key={i} className="flex-1 rounded-t bg-emerald-500/80 hover:bg-emerald-600" style={{ height: `${Math.max((v / dayMax) * 100, v > 0 ? 3 : 0)}%` }} title={fill(t.dayTooltip, { d: i + 1, v: fmt(v) })} />
             ))}
           </div>
           <div className="mt-1 flex justify-between text-[10px] text-slate-400">
@@ -152,9 +155,7 @@ export default async function Reports({ searchParams }: { searchParams: { m?: st
             <span>{Math.ceil(days / 2)}</span>
             <span>{days}</span>
           </div>
-          <p className="mt-2 text-xs text-slate-400">
-            {txs.length} ta xarajat yozuvi · {botShare}% i Telegram bot orqali
-          </p>
+          <p className="mt-2 text-xs text-slate-400">{fill(t.expenseRecords, { n: txs.length, p: botShare })}</p>
         </section>
       </div>
     </>

@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { todayStr } from "@/lib/dates";
 import { fmtShort } from "@/lib/format";
-
-const WEEK = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
+import { fill, type Dict } from "@/lib/i18n";
 
 export type DayTotal = { income: number; expense: number; count: number };
 
 // Oy kalendari: har bir kunda daromad va xarajat yig'indisi. Kunni bosish shu kun amallarini ochadi.
-export function MonthCalendar({ ym, selected, totals }: { ym: string; selected?: string; totals: Map<string, DayTotal> }) {
+export function MonthCalendar({ ym, selected, totals, d }: { ym: string; selected?: string; totals: Map<string, DayTotal>; d: Dict }) {
   const [y, m] = ym.split("-").map(Number);
   const count = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const offset = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
@@ -20,8 +19,8 @@ export function MonthCalendar({ ym, selected, totals }: { ym: string; selected?:
   return (
     <div>
       <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-slate-400 md:gap-1.5">
-        {WEEK.map((d, i) => (
-          <div key={d} className={`pb-1 ${i > 4 ? "text-slate-300" : ""}`}>{d}</div>
+        {d.weekShort.map((w, i) => (
+          <div key={w} className={`pb-1 ${i > 4 ? "text-slate-300" : ""}`}>{w}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1 md:gap-1.5">
@@ -42,12 +41,12 @@ export function MonthCalendar({ ym, selected, totals }: { ym: string; selected?:
               <span className="mt-auto w-full space-y-0.5 text-[10px] leading-tight text-slate-600 md:text-[11px]">
                 {t && t.income > 0 && (
                   <span className="flex items-center gap-1 truncate">
-                    <i className="h-1.5 w-1.5 shrink-0 rounded-full bg-income" />+{fmtShort(t.income)}
+                    <i className="h-1.5 w-1.5 shrink-0 rounded-full bg-income" />+{fmtShort(t.income, d)}
                   </span>
                 )}
                 {t && t.expense > 0 && (
                   <span className="flex items-center gap-1 truncate">
-                    <i className="h-1.5 w-1.5 shrink-0 rounded-full bg-expense" />−{fmtShort(t.expense)}
+                    <i className="h-1.5 w-1.5 shrink-0 rounded-full bg-expense" />−{fmtShort(t.expense, d)}
                   </span>
                 )}
               </span>
@@ -65,7 +64,7 @@ export function MonthCalendar({ ym, selected, totals }: { ym: string; selected?:
               key={day}
               href={isSel ? `/transactions?m=${ym}` : `/transactions?m=${ym}&d=${day}`}
               scroll={false}
-              aria-label={`${n}-kun${t ? `, ${t.count} ta amal` : ""}`}
+              aria-label={t ? fill(d.dayAriaCount, { n, c: t.count }) : fill(d.dayAria, { n })}
               aria-current={isSel ? "date" : undefined}
               className={`${cls} transition ${
                 isSel

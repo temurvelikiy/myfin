@@ -14,12 +14,12 @@ export function fmt(n: number, currency = "UZS") {
 export const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 
 // Grafik o'qlari va kalendar uchun qisqa ko'rinish: 1 250 000 -> "1.3 mln"
-export function fmtShort(n: number) {
+export function fmtShort(n: number, u: { unitK: string; unitM: string; unitB: string } = { unitK: " ming", unitM: " mln", unitB: " mlrd" }) {
   const a = Math.abs(n);
   const f = (v: number, unit: string) => (v >= 100 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, "")) + unit;
-  if (a >= 1e9) return f(a / 1e9, " mlrd");
-  if (a >= 1e6) return f(a / 1e6, " mln");
-  if (a >= 1e3) return f(a / 1e3, " ming");
+  if (a >= 1e9) return f(a / 1e9, u.unitB);
+  if (a >= 1e6) return f(a / 1e6, u.unitM);
+  if (a >= 1e3) return f(a / 1e3, u.unitK);
   return String(Math.round(a));
 }
 

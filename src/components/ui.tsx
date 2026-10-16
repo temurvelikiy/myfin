@@ -1,19 +1,20 @@
 import Link from "next/link";
 import { monthLabel, shiftYm, currentYm } from "@/lib/dates";
 import { fmt, pct } from "@/lib/format";
+import type { Dict } from "@/lib/i18n";
 
-export function MonthNav({ ym, path, title }: { ym: string; path: string; title: string }) {
+export function MonthNav({ ym, path, title, t }: { ym: string; path: string; title: string; t: Dict }) {
   const next = shiftYm(ym, 1);
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h1 className="h1">{title}</h1>
       <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 text-sm shadow-sm">
-        <Link className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" href={`${path}?m=${shiftYm(ym, -1)}`} aria-label="Oldingi oy">
+        <Link className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" href={`${path}?m=${shiftYm(ym, -1)}`} aria-label={t.prevMonth}>
           ←
         </Link>
-        <span className="min-w-[8rem] text-center font-semibold">{monthLabel(ym)}</span>
+        <span className="min-w-[8rem] text-center font-semibold">{monthLabel(ym, t)}</span>
         {next <= currentYm() ? (
-          <Link className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" href={`${path}?m=${next}`} aria-label="Keyingi oy">
+          <Link className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" href={`${path}?m=${next}`} aria-label={t.nextMonth}>
             →
           </Link>
         ) : (
@@ -99,7 +100,7 @@ export function CardHead({ title, href, link }: { title: string; href?: string; 
       <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
       {href && (
         <Link href={href} className="text-xs font-medium text-emerald-700 hover:underline">
-          {link ?? "Barchasi"} →
+          {link} →
         </Link>
       )}
     </div>

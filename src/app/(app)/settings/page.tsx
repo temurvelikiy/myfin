@@ -1,10 +1,14 @@
 import { archiveCategory, changePassword, saveCategory, saveSettings } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { tn } from "@/lib/i18n";
+import { getT } from "@/lib/lang";
 import { StateForm, Submit } from "@/components/StateForm";
+import { LangSwitch } from "@/components/I18n";
 
 export default async function Settings() {
   const user = await requireUser();
+  const t = getT();
   const categories = await prisma.category.findMany({ where: { userId: user.id }, orderBy: [{ archived: "asc" }, { name: "asc" }] });
 
   const CatList = ({ kind, title }: { kind: string; title: string }) => (
@@ -15,78 +19,83 @@ export default async function Settings() {
           <li key={c.id} className={`py-2 ${c.archived ? "opacity-50" : ""}`}>
             <StateForm action={saveCategory} className="grid grid-cols-[3rem_1fr_auto] gap-2 md:grid-cols-[3rem_12rem_1fr_auto]">
               <input type="hidden" name="id" value={c.id} />
-              <input name="icon" className="input px-1 text-center" defaultValue={c.icon} aria-label="Belgi" />
-              <input name="name" className="input" defaultValue={c.name} required aria-label="Nomi" />
-              <input name="keywords" className="input col-span-2 md:col-span-1" defaultValue={c.keywords} placeholder="kalit so'zlar, vergul bilan" aria-label="Kalit so'zlar" />
-              <Submit className="btn-ghost">Saqlash</Submit>
+              <input name="icon" className="input px-1 text-center" defaultValue={c.icon} aria-label={t.icon} />
+              {/* Standart nom bo'lsa, tarjimasi kursor ostida ko'rinadi; saqlangan nom o'zgarmaydi. */}
+              <input name="name" className="input" defaultValue={c.name} title={tn(t, c.name)} required aria-label={t.name} />
+              <input name="keywords" className="input col-span-2 md:col-span-1" defaultValue={c.keywords} placeholder={t.keywordsPlaceholder} aria-label={t.keywords} />
+              <Submit className="btn-ghost h-10">{t.save}</Submit>
             </StateForm>
             <form action={archiveCategory} className="mt-1">
               <input type="hidden" name="id" value={c.id} />
               <input type="hidden" name="archived" value={c.archived ? "0" : "1"} />
-              <button className="text-xs text-slate-400 hover:text-slate-700">{c.archived ? "Qaytarish" : "Arxivlash"}</button>
+              <button className="text-xs text-slate-400 hover:text-slate-700">{c.archived ? t.restore : t.archive}</button>
             </form>
           </li>
         ))}
       </ul>
       <StateForm action={saveCategory} resetOnOk className="mt-3 grid grid-cols-[3rem_1fr_auto] gap-2 border-t border-slate-100 pt-3 md:grid-cols-[3rem_12rem_1fr_auto]">
         <input type="hidden" name="kind" value={kind} />
-        <input name="icon" className="input px-1 text-center" placeholder="📦" aria-label="Belgi" />
-        <input name="name" className="input" placeholder="Yangi kategoriya" required aria-label="Nomi" />
-        <input name="keywords" className="input col-span-2 md:col-span-1" placeholder="kalit so'zlar, vergul bilan" aria-label="Kalit so'zlar" />
-        <Submit>Qo&apos;shish</Submit>
+        <input name="icon" className="input px-1 text-center" placeholder="📦" aria-label={t.icon} />
+        <input name="name" className="input" placeholder={t.newCategory} required aria-label={t.name} />
+        <input name="keywords" className="input col-span-2 md:col-span-1" placeholder={t.keywordsPlaceholder} aria-label={t.keywords} />
+        <Submit>{t.add}</Submit>
       </StateForm>
     </section>
   );
 
   return (
     <>
-      <h1 className="h1">Sozlamalar</h1>
+      <h1 className="h1">{t.navSettings}</h1>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card">
-          <h2 className="h2">Umumiy</h2>
+          <h2 className="h2">{t.general}</h2>
+          <div className="mb-3">
+            <span className="label">{t.language}</span>
+            <LangSwitch />
+          </div>
           <StateForm action={saveSettings} className="space-y-3">
             <div>
-              <label className="label">1 USD kursi (so&apos;m) — hisobotlarda dollarni so&apos;mga o&apos;girish uchun</label>
+              <label className="label">{t.usdRateLabel}</label>
               <input name="usdRate" className="input num" inputMode="decimal" defaultValue={user.usdRate} required />
             </div>
             <div>
-              <label className="label">Jamg&apos;arma maqsadi (daromadning % i)</label>
+              <label className="label">{t.savingsTargetLabel}</label>
               <input name="savingsTarget" className="input num" inputMode="numeric" defaultValue={user.savingsTarget} required />
             </div>
             <div>
-              <label className="label">Telegram ID — botga yozsangiz, u ID raqamingizni aytadi</label>
-              <input name="telegramId" className="input num" inputMode="numeric" defaultValue={user.telegramId ?? ""} placeholder="masalan 123456789" />
+              <label className="label">{t.telegramIdLabel}</label>
+              <input name="telegramId" className="input num" inputMode="numeric" defaultValue={user.telegramId ?? ""} placeholder={t.telegramPlaceholder} />
             </div>
-            <Submit>Saqlash</Submit>
+            <Submit>{t.save}</Submit>
           </StateForm>
         </section>
 
         <section className="card">
-          <h2 className="h2">Parolni almashtirish</h2>
+          <h2 className="h2">{t.changePassword}</h2>
           <StateForm action={changePassword} resetOnOk className="space-y-3">
             <div>
-              <label className="label">Joriy parol</label>
+              <label className="label">{t.currentPassword}</label>
               <input name="current" type="password" className="input" autoComplete="current-password" required />
             </div>
             <div>
-              <label className="label">Yangi parol (kamida 8 belgi)</label>
+              <label className="label">{t.newPassword}</label>
               <input name="next" type="password" className="input" autoComplete="new-password" minLength={8} required />
             </div>
             <div>
-              <label className="label">Yangi parol (takroran)</label>
+              <label className="label">{t.repeatPassword}</label>
               <input name="repeat" type="password" className="input" autoComplete="new-password" minLength={8} required />
             </div>
-            <Submit>Almashtirish</Submit>
+            <Submit>{t.change}</Submit>
           </StateForm>
         </section>
       </div>
 
       <p className="text-sm text-slate-500">
-        Kalit so&apos;zlar bot va tezkor kiritishda kategoriyani taxmin qilish uchun ishlatiladi: <code>45000 taksi</code> → Transport.
+        {t.keywordsHint} <code>{t.keywordsExample}</code>
       </p>
-      <CatList kind="EXPENSE" title="Xarajat kategoriyalari" />
-      <CatList kind="INCOME" title="Daromad kategoriyalari" />
+      <CatList kind="EXPENSE" title={t.expenseCats} />
+      <CatList kind="INCOME" title={t.incomeCats} />
     </>
   );
 }

@@ -7,6 +7,10 @@ import { parseEntry, type Parsed } from "../src/lib/parse";
 import { describeParsed, getAccounts, monthStats, saveParsed } from "../src/lib/finance";
 import { currentYm, dayStr, monthLabel, shortDay, todayStr } from "../src/lib/dates";
 import { fmt } from "../src/lib/format";
+import { DICTS, fill, tMsg } from "../src/lib/i18n";
+
+// Bot hozircha o'zbek tilida javob beradi.
+const T = DICTS.uz;
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!TOKEN) {
@@ -93,7 +97,7 @@ async function onMessage(msg: any) {
     prisma.category.findMany({ where: { userId: user.id, archived: false } }),
   ]);
   const parsed = parseEntry(text.slice(0, 300), accounts, categories);
-  if ("error" in parsed) return void (await send(chat, `❌ ${parsed.error}`));
+  if ("error" in parsed) return void (await send(chat, `❌ ${fill(tMsg(T, parsed.error), parsed.vars ?? {})}`));
 
   const id = crypto.randomBytes(6).toString("hex");
   const summary = describeParsed(parsed, accounts, categories);
@@ -121,7 +125,7 @@ async function onCallback(cb: any) {
     await api("editMessageText", { chat_id: chat, message_id, text: `✅ ${p.summary}` });
     if (warning) await send(chat, warning);
   } catch (e) {
-    await api("editMessageText", { chat_id: chat, message_id, text: `❌ ${e instanceof Error ? e.message : "Xatolik"}` });
+    await api("editMessageText", { chat_id: chat, message_id, text: `❌ ${e instanceof Error ? tMsg(T, e.message) : T.genericError}` });
   }
 }
 

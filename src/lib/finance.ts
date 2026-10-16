@@ -1,20 +1,23 @@
 import { prisma } from "./prisma";
 import { addDays, currentYm, dayStr, monthLabel, monthRange, monthShort, shiftYm, todayStr, weekStart } from "./dates";
 import { fmt, pct } from "./format";
+import { DICTS, fill, tn, type Dict } from "./i18n";
 import type { Acc, Cat, Parsed } from "./parse";
 
 const PLUS = new Set(["INCOME", "DEBT_IN"]);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export const SCOPE_LABEL: Record<string, string> = { PERSONAL: "Shaxsiy", BUSINESS: "Biznes" };
-export const TYPE_LABEL: Record<string, string> = {
-  EXPENSE: "Xarajat",
-  INCOME: "Daromad",
-  TRANSFER: "O'tkazma",
-  EXCHANGE: "Ayirboshlash",
-  DEBT_OUT: "Qarz (chiqim)",
-  DEBT_IN: "Qarz (kirim)",
-};
+const UZ = DICTS.uz;
+
+export const scopeLabel = (t: Dict): Record<string, string> => ({ PERSONAL: t.personal, BUSINESS: t.business });
+export const typeLabel = (t: Dict): Record<string, string> => ({
+  EXPENSE: t.expense,
+  INCOME: t.income,
+  TRANSFER: t.transfer,
+  EXCHANGE: t.exchange,
+  DEBT_OUT: t.debtOut,
+  DEBT_IN: t.debtIn,
+});
 
 // Qoldiq = boshlang'ich summa + barcha amallar. Alohida saqlanmaydi, shuning uchun buzilmaydi.
 export async function getAccounts(userId: string, includeArchived = false) {
@@ -53,10 +56,10 @@ export type TxInput = {
 };
 
 export async function createTx(userId: string, d: TxInput) {
-  if (!(d.amount > 0)) throw new Error("Summa noto'g'ri");
+  if (!(d.amount > 0)) throw new Error("errAmount");
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const account = await prisma.account.findFirst({ where: { id: d.accountId, userId } });
-  if (!account) throw new Error("Hisob topilmadi");
+  if (!account) throw new Error("errAccount");
 
   let type = d.type;
   let toAccountId: string | null = null;
@@ -66,20 +69,20 @@ export async function createTx(userId: string, d: TxInput) {
 
   if (type === "TRANSFER" || type === "EXCHANGE") {
     const to = await prisma.account.findFirst({ where: { id: d.toAccountId ?? "", userId } });
-    if (!to || to.id === account.id) throw new Error("Qabul qiluvchi hisobni tanlang");
+    if (!to || to.id === account.id) throw new Error("errToAccount");
     toAccountId = to.id;
     if (to.currency === account.currency) {
       type = "TRANSFER";
       toAmount = d.amount;
     } else {
-      if (!d.toAmount || !(d.toAmount > 0)) throw new Error("Olingan summani kiriting");
+      if (!d.toAmount || !(d.toAmount > 0)) throw new Error("errToAmount");
       type = "EXCHANGE";
       toAmount = d.toAmount;
       rate = round2(account.currency === "USD" ? toAmount / d.amount : d.amount / toAmount);
     }
   } else if (type === "EXPENSE" || type === "INCOME") {
     const cat = await prisma.category.findFirst({ where: { id: d.categoryId ?? "", userId, kind: type } });
-    if (!cat) throw new Error("Kategoriyani tanlang");
+    if (!cat) throw new Error("errCategory");
     categoryId = cat.id;
   }
 
@@ -157,40 +160,41 @@ export async function monthStats(userId: string, ym: string) {
 }
 
 // Xarajatdan keyin: limitning 80% idan o'tgan bo'lsa ogohlantirish matni qaytadi.
-export async function limitWarning(userId: string, categoryId: string) {
+export async function limitWarning(userId: string, categoryId: string, t: Dict = UZ) {
   const stats = await monthStats(userId, currentYm());
   const c = stats.categories.find((x) => x.id === categoryId);
   if (!c || c.limit <= 0) return null;
   const p = pct(c.spent, c.limit);
-  if (p > 100) return `🚨 ${c.icon} ${c.name}: limit ${fmt(c.spent - c.limit)} ga oshdi (${fmt(c.spent)} / ${fmt(c.limit)})`;
-  if (p >= 80) return `⚠️ ${c.icon} ${c.name}: limitning ${p}% i ishlatildi, ${fmt(c.limit - c.spent)} qoldi`;
+  const name = `${c.icon} ${tn(t, c.name)}`;
+  if (p > 100) return fill(t.limitOver, { c: name, v: fmt(c.spent - c.limit), s: fmt(c.spent), l: fmt(c.limit) });
+  if (p >= 80) return fill(t.limitNear, { c: name, p, v: fmt(c.limit - c.spent) });
   return null;
 }
 
-export function describeParsed(p: Parsed, accounts: Acc[], categories: (Cat & { icon?: string })[]) {
-  const acc = (id?: string) => accounts.find((a) => a.id === id)?.name ?? "?";
+export function describeParsed(p: Parsed, accounts: Acc[], categories: (Cat & { icon?: string })[], t: Dict = UZ) {
+  const acc = (id?: string) => tn(t, accounts.find((a) => a.id === id)?.name ?? "?");
   const money = fmt(p.amount, p.currency);
-  if (p.type === "TRANSFER") return `O'tkazma · ${money} · ${acc(p.accountId)} → ${acc(p.toAccountId)}`;
+  if (p.type === "TRANSFER") return `${t.transfer} · ${money} · ${acc(p.accountId)} → ${acc(p.toAccountId)}`;
   if (p.type === "DEBT") {
-    const due = p.dueDate ? ` · muddat ${p.dueDate.split("-").reverse().join(".")}` : "";
-    return `${p.direction === "TAKEN" ? "Qarz oldim" : "Qarz berdim"} · ${money} · ${p.person} · ${acc(p.accountId)}${due}`;
+    const due = p.dueDate ? ` · ${fill(t.dueShort, { d: p.dueDate.split("-").reverse().join(".") })}` : "";
+    return `${p.direction === "TAKEN" ? t.debtTook : t.debtGave} · ${money} · ${p.person} · ${acc(p.accountId)}${due}`;
   }
   const cat = categories.find((c) => c.id === p.categoryId);
-  return `${TYPE_LABEL[p.type]} · ${money} · ${cat?.icon ?? ""} ${cat?.name ?? "?"} · ${acc(p.accountId)} · ${SCOPE_LABEL[p.scope]}`;
+  return `${typeLabel(t)[p.type]} · ${money} · ${cat?.icon ?? ""} ${cat ? tn(t, cat.name) : "?"} · ${acc(p.accountId)} · ${scopeLabel(t)[p.scope]}`;
 }
 
 export async function createDebt(
   userId: string,
   d: { direction: string; person: string; amount: number; currency: string; dueDate?: Date | null; note?: string; accountId?: string | null; source?: string },
 ) {
-  if (!(d.amount > 0)) throw new Error("Summa noto'g'ri");
-  if (!d.person) throw new Error("Ismni kiriting");
+  if (!(d.amount > 0)) throw new Error("errAmount");
+  if (!d.person) throw new Error("errPerson");
   const direction = d.direction === "TAKEN" ? "TAKEN" : "GIVEN";
   let account = null;
   if (d.accountId) {
     account = await prisma.account.findFirst({ where: { id: d.accountId, userId } });
-    if (!account) throw new Error("Hisob topilmadi");
-    if (account.currency !== d.currency) throw new Error("Hisob valyutasi qarz valyutasiga mos emas");
+    if (!account) throw new Error("errAccount");
+    if (account.currency !== d.currency) throw new Error("errDebtCurrency");
   }
   const debt = await prisma.debt.create({
     data: { userId, direction, person: d.person.slice(0, 80), amount: round2(d.amount), currency: d.currency === "USD" ? "USD" : "UZS", dueDate: d.dueDate ?? null, note: (d.note ?? "").slice(0, 200) },
@@ -200,7 +204,7 @@ export async function createDebt(
       type: direction === "GIVEN" ? "DEBT_OUT" : "DEBT_IN",
       amount: d.amount,
       accountId: account.id,
-      note: `Qarz: ${debt.person}`,
+      note: debt.person,
       debtId: debt.id,
       source: d.source,
     });
@@ -208,7 +212,7 @@ export async function createDebt(
 }
 
 // Tahlil qilingan yozuvni saqlaydi (bot va vebdagi tezkor kiritish uchun umumiy).
-export async function saveParsed(userId: string, p: Parsed, source: "WEB" | "BOT") {
+export async function saveParsed(userId: string, p: Parsed, source: "WEB" | "BOT", t: Dict = UZ) {
   if (p.type === "DEBT") {
     await createDebt(userId, {
       direction: p.direction ?? "GIVEN",
@@ -222,14 +226,14 @@ export async function saveParsed(userId: string, p: Parsed, source: "WEB" | "BOT
     return { warning: null as string | null };
   }
   await createTx(userId, { ...p, source });
-  const warning = p.type === "EXPENSE" && p.categoryId ? await limitWarning(userId, p.categoryId) : null;
+  const warning = p.type === "EXPENSE" && p.categoryId ? await limitWarning(userId, p.categoryId, t) : null;
   return { warning };
 }
 
 export type Bucket = { key: string; label: string; full: string; income: number; expense: number };
 
 // Daromad va xarajat dinamikasi: so'nggi 30 kun, 12 hafta va 12 oy.
-export async function trends(userId: string) {
+export async function trends(userId: string, t: Dict = UZ) {
   const today = todayStr();
   const ym = currentYm();
   const dm = (d: string) => `${d.slice(8)}.${d.slice(5, 7)}`;
@@ -243,7 +247,7 @@ export async function trends(userId: string) {
     dm,
     (k) => `${dm(k)} – ${dm(addDays(k, 6))}`,
   );
-  const months = make(monthKeys, monthShort, monthLabel);
+  const months = make(monthKeys, (k) => monthShort(k, t), (k) => monthLabel(k, t));
 
   const txs = await prisma.transaction.findMany({
     where: { userId, type: { in: ["EXPENSE", "INCOME"] }, date: { gte: monthRange(monthKeys[0]).start } },

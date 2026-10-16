@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { logout } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
+import { getT } from "@/lib/lang";
 import { Nav } from "@/components/Nav";
+import { LangSwitch } from "@/components/I18n";
 
 const Logo = () => (
   <Link href="/" className="flex items-center gap-2 text-lg font-bold text-white">
@@ -15,6 +17,7 @@ const Logo = () => (
 // Shu guruhdagi barcha sahifalar faqat tizimga kirgan foydalanuvchi uchun.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  const t = getT();
   return (
     <div className="min-h-screen md:flex">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-slate-950 p-4 md:flex">
@@ -24,19 +27,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="mt-6 flex-1">
           <Nav />
         </div>
+        <div className="mb-3 px-1">
+          <LangSwitch dark />
+        </div>
         <form action={logout} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2">
           <span className="flex min-w-0 items-center gap-2 text-sm text-slate-200">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold uppercase text-emerald-300">{user.login[0]}</span>
             <span className="truncate">{user.login}</span>
           </span>
-          <button className="text-xs text-slate-400 hover:text-white">Chiqish</button>
+          <button className="text-xs text-slate-400 hover:text-white">{t.logout}</button>
         </form>
       </aside>
 
       <header className="sticky top-0 z-20 flex items-center justify-between bg-slate-950 px-4 py-3 md:hidden">
         <Logo />
-        <form action={logout}>
-          <button className="text-xs text-slate-400 hover:text-white">Chiqish</button>
+        <form action={logout} className="flex items-center gap-3">
+          <LangSwitch dark />
+          <button className="text-xs text-slate-400 hover:text-white">{t.logout}</button>
         </form>
       </header>
 
