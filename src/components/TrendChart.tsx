@@ -13,8 +13,9 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
-const INCOME = "#2563eb";
-const EXPENSE = "#e8794a";
+// Ranglar CSS o'zgaruvchilaridan olinadi: kun va tun rejimida alohida tekshirilgan.
+const INCOME = "rgb(var(--income))";
+const EXPENSE = "rgb(var(--expense))";
 const H = 250;
 const PAD = { l: 52, r: 8, t: 10, b: 26 };
 
@@ -120,8 +121,8 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
         <svg width="100%" height={H} role="img" aria-label={t.chartAria}>
           {[0, 0.25, 0.5, 0.75, 1].map((v) => (
             <g key={v}>
-              <line x1={PAD.l} x2={PAD.l + iw} y1={y(max * v)} y2={y(max * v)} stroke={v === 0 ? "#cbd5e1" : "#eef2f6"} />
-              <text x={PAD.l - 8} y={y(max * v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">
+              <line x1={PAD.l} x2={PAD.l + iw} y1={y(max * v)} y2={y(max * v)} className={v === 0 ? "stroke-slate-300" : "stroke-slate-100"} />
+              <text x={PAD.l - 8} y={y(max * v) + 4} textAnchor="end" fontSize="11" className="fill-slate-400">
                 {v === 0 ? "0" : fmtShort(max * v, t)}
               </text>
             </g>
@@ -130,11 +131,11 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
             const cx = PAD.l + band * (i + 0.5);
             return (
               <g key={r.key}>
-                {hover === i && <rect x={PAD.l + band * i} y={PAD.t} width={band} height={ih} fill="#fff1e8" rx="6" />}
+                {hover === i && <rect x={PAD.l + band * i} y={PAD.t} width={band} height={ih} className="fill-peach-100" rx="6" />}
                 {r.income > 0 && <path d={bar(cx - bw - 1, y(r.income), bw, base)} fill={INCOME} />}
                 {r.expense > 0 && <path d={bar(cx + 1, y(r.expense), bw, base)} fill={EXPENSE} />}
                 {(rows.length - 1 - i) % labelStep === 0 && (
-                  <text x={cx} y={H - 8} textAnchor="middle" fontSize="11" fill={i === rows.length - 1 ? "#0f172a" : "#94a3b8"} fontWeight={i === rows.length - 1 ? 600 : 400}>
+                  <text x={cx} y={H - 8} textAnchor="middle" fontSize="11" className={i === rows.length - 1 ? "fill-slate-900" : "fill-slate-400"} fontWeight={i === rows.length - 1 ? 600 : 400}>
                     {r.label}
                   </text>
                 )}
@@ -152,7 +153,7 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
 
         {h && (
           <div
-            className="pointer-events-none absolute top-2 z-10 min-w-[11rem] rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg"
+            className="pointer-events-none absolute top-2 z-10 min-w-[11rem] rounded-xl border border-slate-200 bg-card px-3 py-2 text-xs shadow-lg"
             style={{ left: tipX, transform: `translateX(${tipX > w / 2 ? "calc(-100% - 12px)" : "12px"})` }}
           >
             <p className="mb-1 font-semibold text-slate-800">{h.full}</p>
@@ -175,7 +176,7 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
         <summary className="cursor-pointer hover:text-slate-700">{t.tableView}</summary>
         <div className="mt-2 max-h-64 overflow-auto">
           <table className="num w-full">
-            <thead className="sticky top-0 bg-white text-left text-slate-400">
+            <thead className="sticky top-0 bg-card text-left text-slate-400">
               <tr>
                 <th className="py-1 font-medium">{t.period}</th>
                 <th className="py-1 text-right font-medium">{t.income}</th>

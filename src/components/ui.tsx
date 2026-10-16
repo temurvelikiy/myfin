@@ -8,7 +8,7 @@ export function MonthNav({ ym, path, title, t }: { ym: string; path: string; tit
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h1 className="h1">{title}</h1>
-      <div className="flex items-center gap-1 rounded-xl border border-peach-100 bg-white p-1 text-sm shadow-sm">
+      <div className="flex items-center gap-1 rounded-xl border border-peach-100 bg-card p-1 text-sm shadow-sm">
         <Link className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" href={`${path}?m=${shiftYm(ym, -1)}`} aria-label={t.prevMonth}>
           ←
         </Link>

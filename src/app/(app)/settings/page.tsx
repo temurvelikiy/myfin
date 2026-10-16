@@ -5,6 +5,7 @@ import { tn } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { StateForm, Submit } from "@/components/StateForm";
 import { LangSwitch } from "@/components/I18n";
+import { ThemeToggle } from "@/components/Theme";
 
 export default async function Settings() {
   const user = await requireUser();
@@ -50,9 +51,15 @@ export default async function Settings() {
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card">
           <h2 className="h2">{t.general}</h2>
-          <div className="mb-3">
-            <span className="label">{t.language}</span>
-            <LangSwitch />
+          <div className="mb-3 flex flex-wrap gap-4">
+            <div>
+              <span className="label">{t.language}</span>
+              <LangSwitch />
+            </div>
+            <div>
+              <span className="label">{t.theme}</span>
+              <ThemeToggle />
+            </div>
           </div>
           <StateForm action={saveSettings} className="space-y-3">
             <div>

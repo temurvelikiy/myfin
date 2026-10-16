@@ -70,7 +70,7 @@ export function MonthCalendar({ ym, selected, totals, d }: { ym: string; selecte
                 isSel
                   ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500/20"
                   : t
-                    ? "border-peach-200 bg-white hover:border-blue-400 hover:shadow-sm"
+                    ? "border-peach-200 bg-card hover:border-blue-400 hover:shadow-sm"
                     : "border-peach-100 bg-peach-50/60 hover:border-peach-300"
               }`}
             >

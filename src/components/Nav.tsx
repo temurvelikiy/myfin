@@ -36,7 +36,7 @@ export function Nav({ mobile }: { mobile?: boolean }) {
             key={href}
             href={href}
             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-              active ? "bg-white font-semibold text-blue-700 shadow-lg shadow-blue-950/20" : "text-blue-100 hover:bg-white/10 hover:text-white"
+              active ? "bg-card font-semibold text-blue-700 shadow-lg shadow-blue-950/20" : "text-blue-100 hover:bg-white/10 hover:text-white"
             }`}
           >
             <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${active ? "bg-peach-100" : "bg-white/10"}`}>{icon}</span>
