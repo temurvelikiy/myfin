@@ -441,7 +441,7 @@ export async function getGoals(userId: string) {
 
 export async function createGoal(
   userId: string,
-  d: { name: string; target: number; currency: string; deadline?: Date | null; note?: string },
+  d: { name: string; target: number; currency: string; deadline?: Date | null; note?: string; image?: string | null },
 ) {
   if (!d.name) throw new Error("enterName");
   if (!(d.target > 0)) throw new Error("errAmount");
@@ -453,8 +453,24 @@ export async function createGoal(
       currency: d.currency === "USD" ? "USD" : "UZS",
       deadline: d.deadline ?? null,
       note: (d.note ?? "").slice(0, 200),
+      image: d.image ?? null,
     },
   });
+}
+
+// Maqsadni tahrirlash. image: undefined — o'zgarmaydi, null — olib tashlanadi, matn — yangi rasm.
+export async function updateGoal(
+  userId: string,
+  id: string,
+  d: { name: string; target: number; deadline: Date | null; note: string; image?: string | null },
+) {
+  if (!d.name) throw new Error("enterName");
+  if (!(d.target > 0)) throw new Error("errAmount");
+  const r = await prisma.goal.updateMany({
+    where: { id, userId },
+    data: { name: d.name.slice(0, 60), target: round2(d.target), deadline: d.deadline, note: d.note.slice(0, 200), ...(d.image !== undefined ? { image: d.image } : {}) },
+  });
+  if (!r.count) throw new Error("errGoal");
 }
 
 // Jamg'armaga pul qo'shish (hisobdan chiqadi) yoki yechish (hisobga qaytadi).

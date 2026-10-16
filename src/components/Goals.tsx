@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { deleteGoal } from "@/app/actions";
 import { dayStr, shortDay, todayStr } from "@/lib/dates";
 import { fmt, pct } from "@/lib/format";
@@ -9,6 +10,7 @@ export type GoalView = {
   id: string;
   name: string;
   icon: string;
+  image?: string | null;
   target: number;
   currency: string;
   deadline: Date | null;
@@ -37,7 +39,7 @@ export function Goals({ goals, t, compact }: { goals: GoalView[]; t: Dict; compa
         return (
           <li key={g.id} className={compact ? "" : "rounded-xl border border-peach-100 bg-peach-50 p-3"}>
             <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="truncate font-medium">{g.icon} {g.name}</span>
+              <Link href={`/savings/${g.id}`} className="truncate font-medium hover:text-blue-700">{g.icon} {g.name}</Link>
               <span className="num shrink-0 text-xs text-slate-500">{p}%</span>
             </div>
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">

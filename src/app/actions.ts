@@ -12,6 +12,7 @@ import {
   createGoal,
   getGoals,
   saveToGoal,
+  updateGoal,
   createTx,
   debtLeft,
   describeParsed,
@@ -433,6 +434,73 @@ export async function deleteGoal(_: State, fd: FormData): Promise<State> {
   await prisma.transaction.deleteMany({ where: { goalId: goal.id, userId: user.id } });
   await prisma.goal.delete({ where: { id: goal.id } });
   return done(getT().saved);
+}
+
+// Maqsad rasmi: brauzerda 800×600 gacha kichraytirilgan data URL.
+const IMAGE_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const goalImage = (raw: string) => (raw && raw.length <= 400_000 && IMAGE_RE.test(raw) ? raw : null);
+const dateOrNull = (v: string) => (validDay(v) ? new Date(`${v}T12:00:00+05:00`) : null);
+
+export async function createGoalAction(_: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  const rawImage = String(fd.get("image") ?? "");
+  if (rawImage && !goalImage(rawImage)) return err("avatarBadFile");
+  try {
+    await createGoal(user.id, {
+      name: str(fd.get("name"), 60),
+      target: num(fd.get("target")),
+      currency: str(fd.get("currency"), 3),
+      deadline: dateOrNull(str(fd.get("deadline"), 10)),
+      note: str(fd.get("note")),
+      image: goalImage(rawImage),
+    });
+  } catch (e) {
+    return fail(e);
+  }
+  return done(getT().goalAdded);
+}
+
+export async function updateGoalAction(_: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  const rawImage = String(fd.get("image") ?? "");
+  if (rawImage && !goalImage(rawImage)) return err("avatarBadFile");
+  try {
+    await updateGoal(user.id, str(fd.get("id")), {
+      name: str(fd.get("name"), 60),
+      target: num(fd.get("target")),
+      deadline: dateOrNull(str(fd.get("deadline"), 10)),
+      note: str(fd.get("note")),
+      // imageChanged=1: rasm almashtirildi (bo'sh bo'lsa — olib tashlandi); aks holda o'zgarmaydi
+      image: fd.get("imageChanged") === "1" ? goalImage(rawImage) : undefined,
+    });
+  } catch (e) {
+    return fail(e);
+  }
+  return done(getT().goalUpdated);
+}
+
+// Maqsadga pul qo'shish yoki yechish (Jamg'arma sahifasidagi tez forma).
+export async function goalMoneyAction(_: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  const withdraw = fd.get("kind") === "out";
+  try {
+    await saveToGoal(user.id, str(fd.get("id")), {
+      amount: num(fd.get("amount")),
+      accountId: str(fd.get("accountId")),
+      withdraw,
+      note: str(fd.get("note")),
+    });
+  } catch (e) {
+    return fail(e);
+  }
+  return done(withdraw ? getT().goalWithdrawOk : getT().goalDepositOk);
+}
+
+// Maqsad sahifasidan o'chirilganda ro'yxatga qaytadi.
+export async function deleteGoalAndBack(_: State, fd: FormData): Promise<State> {
+  const r = await deleteGoal(_, fd);
+  if (r.error) return r;
+  redirect("/savings");
 }
 
 // ---------- Avatar ----------

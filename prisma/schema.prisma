@@ -170,6 +170,7 @@ model Goal {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   icon      String    @default("🎯")
+  image     String? // maqsad rasmi: data:image/... (kichraytirilgan)
   target    Float
   currency  String    @default("UZS")
   deadline  DateTime?

@@ -9,6 +9,7 @@ const LINKS = [
   ["/transactions", "🧾", "navTx"],
   ["/accounts", "💳", "navAccounts"],
   ["/budgets", "🎯", "navBudgets"],
+  ["/savings", "🐷", "navSavings"],
   ["/debts", "🤝", "navDebts"],
   ["/reports", "📊", "navReports"],
   ["/settings", "⚙️", "navSettings"],

@@ -157,7 +157,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { m?: 
           </section>
 
           <section className="card">
-            <CardHead title={`🎯 ${t.goalsTitle}`} href="/transactions" link={t.all} />
+            <CardHead title={`🎯 ${t.goalsTitle}`} href="/savings" link={t.all} />
             <Goals goals={goals.slice(0, 4)} t={t} compact />
           </section>
 
