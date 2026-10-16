@@ -91,16 +91,16 @@ export default async function Dashboard({ searchParams }: { searchParams: { m?: 
             {stats.expense > 0 ? (
               <>
                 <div className="flex h-3 gap-0.5 overflow-hidden rounded-full">
-                  <div className="rounded-l-full bg-emerald-500" style={{ width: `${pct(stats.personal, stats.expense)}%` }} />
-                  <div className="flex-1 rounded-r-full bg-indigo-500" />
+                  <div className="rounded-l-full bg-blue-500" style={{ width: `${pct(stats.personal, stats.expense)}%` }} />
+                  <div className="flex-1 rounded-r-full bg-peach-400" />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="flex items-center gap-1.5 text-xs text-slate-500"><i className="h-2.5 w-2.5 rounded-[3px] bg-emerald-500" /> {t.personal} · {pct(stats.personal, stats.expense)}%</p>
+                    <p className="flex items-center gap-1.5 text-xs text-slate-500"><i className="h-2.5 w-2.5 rounded-[3px] bg-blue-500" /> {t.personal} · {pct(stats.personal, stats.expense)}%</p>
                     <p className="num font-semibold">{fmt(stats.personal)}</p>
                   </div>
                   <div>
-                    <p className="flex items-center gap-1.5 text-xs text-slate-500"><i className="h-2.5 w-2.5 rounded-[3px] bg-indigo-500" /> {t.business} · {pct(stats.business, stats.expense)}%</p>
+                    <p className="flex items-center gap-1.5 text-xs text-slate-500"><i className="h-2.5 w-2.5 rounded-[3px] bg-peach-400" /> {t.business} · {pct(stats.business, stats.expense)}%</p>
                     <p className="num font-semibold">{fmt(stats.business)}</p>
                   </div>
                 </div>

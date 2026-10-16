@@ -90,15 +90,15 @@ export default async function Transactions({ searchParams: q }: { searchParams: 
         </div>
 
         <div className="mb-4 grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-xl bg-slate-50 px-3 py-2">
+          <div className="rounded-xl bg-peach-50 px-3 py-2">
             <p className="text-xs text-slate-500">{t.navTx}</p>
             <p className="num font-semibold">{fill(t.countUnit, { n: txs.length })}</p>
           </div>
-          <div className="rounded-xl bg-slate-50 px-3 py-2">
+          <div className="rounded-xl bg-peach-50 px-3 py-2">
             <p className="text-xs text-slate-500">{t.income}</p>
-            <p className="num font-semibold text-emerald-600">+{fmt(sum("INCOME"))}</p>
+            <p className="num font-semibold text-blue-600">+{fmt(sum("INCOME"))}</p>
           </div>
-          <div className="rounded-xl bg-slate-50 px-3 py-2">
+          <div className="rounded-xl bg-peach-50 px-3 py-2">
             <p className="text-xs text-slate-500">{t.expense}</p>
             <p className="num font-semibold text-red-600">−{fmt(sum("EXPENSE"))}</p>
           </div>

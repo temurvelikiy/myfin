@@ -13,8 +13,8 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
-const INCOME = "#0d9488";
-const EXPENSE = "#eb6834";
+const INCOME = "#2563eb";
+const EXPENSE = "#e8794a";
 const H = 250;
 const PAD = { l: 52, r: 8, t: 10, b: 26 };
 
@@ -90,7 +90,7 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
       {/* Joriy davr va oldingi davr bilan solishtirish */}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {figures.map((f) => (
-          <div key={f.label} className="rounded-xl bg-slate-50 px-3 py-2.5">
+          <div key={f.label} className="rounded-xl bg-peach-50 px-3 py-2.5">
             <p className="flex items-center gap-1.5 text-xs text-slate-500">
               <Swatch color={f.color} /> {nowLabel} · {f.label.toLowerCase()}
             </p>
@@ -101,7 +101,7 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
             </p>
           </div>
         ))}
-        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+        <div className="rounded-xl bg-peach-50 px-3 py-2.5">
           <p className="text-xs text-slate-500">{nowLabel} · {t.difference.toLowerCase()}</p>
           <p className="num mt-0.5 text-lg font-bold">
             {net > 0 ? "+" : ""}
@@ -130,7 +130,7 @@ export function TrendChart({ data }: { data: Record<Tab, Bucket[]> }) {
             const cx = PAD.l + band * (i + 0.5);
             return (
               <g key={r.key}>
-                {hover === i && <rect x={PAD.l + band * i} y={PAD.t} width={band} height={ih} fill="#f1f5f9" rx="6" />}
+                {hover === i && <rect x={PAD.l + band * i} y={PAD.t} width={band} height={ih} fill="#fff1e8" rx="6" />}
                 {r.income > 0 && <path d={bar(cx - bw - 1, y(r.income), bw, base)} fill={INCOME} />}
                 {r.expense > 0 && <path d={bar(cx + 1, y(r.expense), bw, base)} fill={EXPENSE} />}
                 {(rows.length - 1 - i) % labelStep === 0 && (

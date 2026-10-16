@@ -31,7 +31,7 @@ export function LangSwitch({ dark }: { dark?: boolean }) {
       }
       className={
         dark
-          ? "cursor-pointer rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-slate-200 outline-none hover:bg-white/10 [&>option]:text-slate-900"
+          ? "cursor-pointer rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-xs text-white outline-none hover:bg-white/20 [&>option]:text-slate-900"
           : "input h-9 w-auto text-xs"
       }
     >

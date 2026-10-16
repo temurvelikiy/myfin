@@ -49,7 +49,7 @@ export default async function Budgets({ searchParams }: { searchParams: { m?: st
                       {c.limit > 0 && (
                         <div className="flex items-center gap-1.5">
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                            <div className={`h-full ${p > 100 ? "bg-red-500" : p >= 80 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(p, 100)}%` }} />
+                            <div className={`h-full ${p > 100 ? "bg-red-500" : p >= 80 ? "bg-amber-500" : "bg-blue-500"}`} style={{ width: `${Math.min(p, 100)}%` }} />
                           </div>
                           <span className="num text-xs text-slate-500">{p}%</span>
                         </div>

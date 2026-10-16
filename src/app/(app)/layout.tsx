@@ -7,9 +7,9 @@ import { LangSwitch } from "@/components/I18n";
 
 const Logo = () => (
   <Link href="/" className="flex items-center gap-2 text-lg font-bold text-white">
-    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-sm shadow-lg shadow-emerald-500/30">₿</span>
+    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-peach-300 to-peach-500 text-sm shadow-lg shadow-peach-500/40">₿</span>
     <span>
-      <span className="text-emerald-400">My</span>Fin
+      <span className="text-peach-300">My</span>Fin
     </span>
   </Link>
 );
@@ -20,36 +20,37 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const t = getT();
   return (
     <div className="min-h-screen md:flex">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-slate-950 p-4 md:flex">
-        <div className="px-2 py-2">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-hidden bg-gradient-to-b from-blue-600 via-blue-700 to-blue-900 p-4 md:flex">
+        <div className="pointer-events-none absolute -bottom-24 -left-20 h-64 w-64 rounded-full bg-peach-400/25 blur-3xl" />
+        <div className="relative px-2 py-2">
           <Logo />
         </div>
-        <div className="mt-6 flex-1">
+        <div className="relative mt-6 flex-1">
           <Nav />
         </div>
-        <div className="mb-3 px-1">
+        <div className="relative mb-3 px-1">
           <LangSwitch dark />
         </div>
-        <form action={logout} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2">
-          <span className="flex min-w-0 items-center gap-2 text-sm text-slate-200">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold uppercase text-emerald-300">{user.login[0]}</span>
+        <form action={logout} className="relative flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
+          <span className="flex min-w-0 items-center gap-2 text-sm text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-peach-300 text-xs font-semibold uppercase text-blue-900">{user.login[0]}</span>
             <span className="truncate">{user.login}</span>
           </span>
-          <button className="text-xs text-slate-400 hover:text-white">{t.logout}</button>
+          <button className="text-xs text-blue-100 hover:text-white">{t.logout}</button>
         </form>
       </aside>
 
-      <header className="sticky top-0 z-20 flex items-center justify-between bg-slate-950 px-4 py-3 md:hidden">
+      <header className="sticky top-0 z-20 flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 px-4 py-3 shadow-md md:hidden">
         <Logo />
         <form action={logout} className="flex items-center gap-3">
           <LangSwitch dark />
-          <button className="text-xs text-slate-400 hover:text-white">{t.logout}</button>
+          <button className="text-xs text-blue-100 hover:text-white">{t.logout}</button>
         </form>
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-4 p-4 pb-24 md:space-y-5 md:p-8">{children}</main>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-slate-950/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-peach-100 bg-white/95 px-1 shadow-[0_-8px_24px_-12px_rgba(30,58,138,.18)] pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <Nav mobile />
       </div>
     </div>

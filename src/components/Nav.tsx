@@ -14,7 +14,7 @@ const LINKS = [
   ["/settings", "⚙️", "navSettings"],
 ] as const;
 
-// mobile: pastki panel (ikonka ustida, yozuv ostida); aks holda yon menyu.
+// mobile: oq pastki panel; aks holda ko'k yon menyudagi ro'yxat.
 export function Nav({ mobile }: { mobile?: boolean }) {
   const path = usePathname();
   const t = useT();
@@ -26,9 +26,9 @@ export function Nav({ mobile }: { mobile?: boolean }) {
           <Link
             key={href}
             href={href}
-            className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] ${active ? "font-semibold text-emerald-400" : "text-slate-400"}`}
+            className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] ${active ? "font-semibold text-blue-700" : "text-slate-500"}`}
           >
-            <span className={`flex h-7 w-10 items-center justify-center rounded-full text-base ${active ? "bg-emerald-500/15" : ""}`}>{icon}</span>
+            <span className={`flex h-7 w-10 items-center justify-center rounded-full text-base ${active ? "bg-peach-100" : ""}`}>{icon}</span>
             <span className="w-full truncate text-center">{t[key]}</span>
           </Link>
         ) : (
@@ -36,10 +36,10 @@ export function Nav({ mobile }: { mobile?: boolean }) {
             key={href}
             href={href}
             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-              active ? "bg-emerald-500/15 font-semibold text-emerald-300" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              active ? "bg-white font-semibold text-blue-700 shadow-lg shadow-blue-950/20" : "text-blue-100 hover:bg-white/10 hover:text-white"
             }`}
           >
-            <span>{icon}</span>
+            <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${active ? "bg-peach-100" : "bg-white/10"}`}>{icon}</span>
             {t[key]}
           </Link>
         );

@@ -94,8 +94,8 @@ export default async function Reports({ searchParams }: { searchParams: { m?: st
                   </div>
                   {/* Yashil — shaxsiy, binafsha — biznes */}
                   <div className="mt-1 flex h-2.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className="bg-emerald-500" style={{ width: `${(c.personal / max) * 100}%` }} />
-                    <div className="bg-indigo-500" style={{ width: `${(c.business / max) * 100}%` }} />
+                    <div className="bg-blue-500" style={{ width: `${(c.personal / max) * 100}%` }} />
+                    <div className="bg-peach-400" style={{ width: `${(c.business / max) * 100}%` }} />
                   </div>
                 </div>
               );
@@ -147,7 +147,7 @@ export default async function Reports({ searchParams }: { searchParams: { m?: st
           <h2 className="h2">{t.dailyExpense}</h2>
           <div className="flex h-32 items-end gap-px">
             {daily.map((v, i) => (
-              <div key={i} className="flex-1 rounded-t bg-emerald-500/80 hover:bg-emerald-600" style={{ height: `${Math.max((v / dayMax) * 100, v > 0 ? 3 : 0)}%` }} title={fill(t.dayTooltip, { d: i + 1, v: fmt(v) })} />
+              <div key={i} className="flex-1 rounded-t bg-expense/90 hover:bg-expense" style={{ height: `${Math.max((v / dayMax) * 100, v > 0 ? 3 : 0)}%` }} title={fill(t.dayTooltip, { d: i + 1, v: fmt(v) })} />
             ))}
           </div>
           <div className="mt-1 flex justify-between text-[10px] text-slate-400">

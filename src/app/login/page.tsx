@@ -9,13 +9,15 @@ export default async function LoginPage() {
   if (await getUser()) redirect("/");
   const t = getT();
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-900 p-4">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 p-4">
+      <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-peach-300/40 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-sky-300/30 blur-3xl" />
       <div className="absolute right-4 top-4">
         <LangSwitch dark />
       </div>
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-sm rounded-3xl bg-white p-7 shadow-2xl shadow-blue-950/30">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-2xl text-white">₿</div>
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-peach-300 to-peach-500 text-2xl text-white shadow-lg shadow-peach-500/40">₿</div>
           <h1 className="text-2xl font-bold tracking-tight">MyFin</h1>
           <p className="mt-1 text-sm text-slate-500">{t.tagline}</p>
         </div>

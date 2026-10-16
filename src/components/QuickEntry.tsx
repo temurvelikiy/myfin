@@ -71,7 +71,7 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
       </form>
 
       {draft && (
-        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+        <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
           <p className="text-sm font-medium">{draft.summary}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {draft.parsed.type !== "TRANSFER" && (
@@ -105,7 +105,7 @@ export function QuickEntry({ accounts, categories }: { accounts: Acc[]; categori
       )}
 
       {msg.error && <p className="mt-2 text-sm text-red-600">{msg.error}</p>}
-      {msg.ok && <p className="mt-2 text-sm text-emerald-700">{t.savedPrefix} {msg.ok}</p>}
+      {msg.ok && <p className="mt-2 text-sm text-blue-700">{t.savedPrefix} {msg.ok}</p>}
       {msg.warning && <p className="mt-1 text-sm font-medium text-amber-700">{msg.warning}</p>}
       <p className="mt-2 text-xs text-slate-400">
         {t.hintTransfer}: <code>{t.exTransfer}</code> · {t.hintDebt}: <code>{t.exDebt}</code> · {t.hintDollar}: <code>{t.exDollar}</code>

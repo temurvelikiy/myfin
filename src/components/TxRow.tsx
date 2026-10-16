@@ -28,7 +28,7 @@ export function TxRow({ tx: t, d, withDelete }: { tx: TxView; d: Dict; withDelet
       <div className="min-w-0 flex-1">
         <p className="truncate">
           {title}
-          {t.scope === "BUSINESS" && <span className="ml-2 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">BIZ</span>}
+          {t.scope === "BUSINESS" && <span className="ml-2 rounded bg-peach-100 px-1.5 py-0.5 text-[10px] font-medium text-peach-700">BIZ</span>}
           {t.source === "BOT" && <span className="ml-1 text-[10px] text-slate-400">bot</span>}
         </p>
         <p className="truncate text-xs text-slate-400">
@@ -36,7 +36,7 @@ export function TxRow({ tx: t, d, withDelete }: { tx: TxView; d: Dict; withDelet
           {t.note && ` · ${t.note}`}
         </p>
       </div>
-      <span className={`num shrink-0 font-medium ${moving ? "text-slate-500" : plus ? "text-emerald-600" : "text-red-600"}`}>
+      <span className={`num shrink-0 font-medium ${moving ? "text-slate-500" : plus ? "text-blue-600" : "text-red-600"}`}>
         {moving ? "" : plus ? "+" : "−"}
         {fmt(t.amount, t.account.currency)}
         {t.type === "EXCHANGE" && t.toAccount && ` → ${fmt(t.toAmount ?? 0, t.toAccount.currency)}`}

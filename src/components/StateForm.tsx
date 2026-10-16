@@ -26,7 +26,7 @@ export function StateForm({
     <form ref={ref} action={formAction} className={className}>
       {children}
       {(state.error || state.ok) && (
-        <p role="status" className={`col-span-full text-sm ${state.error ? "text-red-600" : "text-emerald-700"}`}>
+        <p role="status" className={`col-span-full text-sm ${state.error ? "text-red-600" : "text-blue-700"}`}>
           {state.error ?? state.ok}
         </p>
       )}

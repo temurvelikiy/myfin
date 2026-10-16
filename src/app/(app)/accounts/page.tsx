@@ -31,7 +31,7 @@ export default async function Accounts() {
               <div>
                 <p className="text-xs text-slate-500">
                   {KIND[a.kind]} · {a.currency}
-                  {a.isDefault && <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">{t.mainBadge}</span>}
+                  {a.isDefault && <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">{t.mainBadge}</span>}
                 </p>
                 <p className="font-medium">{tn(t, a.name)}</p>
               </div>
@@ -39,7 +39,7 @@ export default async function Accounts() {
             </div>
 
             <details className="mt-3 border-t border-slate-100 pt-2">
-              <summary className="cursor-pointer text-xs text-emerald-700">{t.reconcile}</summary>
+              <summary className="cursor-pointer text-xs text-blue-700">{t.reconcile}</summary>
               <StateForm action={reconcileAccount} resetOnOk className="mt-2 grid grid-cols-[1fr_auto] gap-2">
                 <input type="hidden" name="id" value={a.id} />
                 <input name="real" className="input num" inputMode="decimal" placeholder={fill(t.realPlaceholder, { c: a.currency })} required aria-label={t.realAria} />
@@ -125,7 +125,7 @@ export default async function Accounts() {
                 <form action={archiveAccount}>
                   <input type="hidden" name="id" value={a.id} />
                   <input type="hidden" name="archived" value="0" />
-                  <button className="text-xs text-emerald-700 hover:underline">{t.restore}</button>
+                  <button className="text-xs text-blue-700 hover:underline">{t.restore}</button>
                 </form>
               </li>
             ))}

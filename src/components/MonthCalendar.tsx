@@ -33,7 +33,7 @@ export function MonthCalendar({ ym, selected, totals, d }: { ym: string; selecte
             <>
               <span
                 className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                  day === today ? "bg-slate-900 text-white" : isSel ? "text-emerald-700" : "text-slate-700"
+                  day === today ? "bg-blue-600 text-white" : isSel ? "text-blue-700" : "text-slate-700"
                 }`}
               >
                 {n}
@@ -68,10 +68,10 @@ export function MonthCalendar({ ym, selected, totals, d }: { ym: string; selecte
               aria-current={isSel ? "date" : undefined}
               className={`${cls} transition ${
                 isSel
-                  ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20"
+                  ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500/20"
                   : t
-                    ? "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-sm"
-                    : "border-slate-100 bg-slate-50/60 hover:border-slate-300"
+                    ? "border-peach-200 bg-white hover:border-blue-400 hover:shadow-sm"
+                    : "border-peach-100 bg-peach-50/60 hover:border-peach-300"
               }`}
             >
               {body}

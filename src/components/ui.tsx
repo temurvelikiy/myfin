@@ -8,7 +8,7 @@ export function MonthNav({ ym, path, title, t }: { ym: string; path: string; tit
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h1 className="h1">{title}</h1>
-      <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 text-sm shadow-sm">
+      <div className="flex items-center gap-1 rounded-xl border border-peach-100 bg-white p-1 text-sm shadow-sm">
         <Link className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" href={`${path}?m=${shiftYm(ym, -1)}`} aria-label={t.prevMonth}>
           ←
         </Link>
@@ -29,7 +29,7 @@ export function MonthNav({ ym, path, title, t }: { ym: string; path: string; tit
 export function Delta({ value, upIsGood = true }: { value: number | null; upIsGood?: boolean }) {
   if (value === null) return null;
   const good = value === 0 ? null : value > 0 === upIsGood;
-  const tone = good === null ? "bg-slate-100 text-slate-500" : good ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700";
+  const tone = good === null ? "bg-slate-100 text-slate-500" : good ? "bg-blue-50 text-blue-700" : "bg-red-50 text-red-700";
   return (
     <span className={`num inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${tone}`}>
       {value > 0 ? "▲" : value < 0 ? "▼" : "•"} {Math.abs(value)}%
@@ -58,9 +58,9 @@ export function Stat({
     <div className="card">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-slate-500">{label}</p>
-        {icon && <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-sm">{icon}</span>}
+        {icon && <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-peach-100 text-sm">{icon}</span>}
       </div>
-      <p className={`num mt-2 whitespace-nowrap text-lg font-bold tracking-tight sm:text-xl ${tone === "good" ? "text-emerald-600" : tone === "bad" ? "text-red-600" : ""}`}>{value}</p>
+      <p className={`num mt-2 break-words text-[15px] font-bold leading-snug tracking-tight sm:whitespace-nowrap sm:text-xl ${tone === "good" ? "text-blue-600" : tone === "bad" ? "text-red-600" : ""}`}>{value}</p>
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
         {delta !== undefined && <Delta value={delta} upIsGood={upIsGood} />}
         {hint && <p className="text-xs text-slate-400">{hint}</p>}
@@ -72,7 +72,7 @@ export function Stat({
 // Limit chizig'i: 80% dan sariq, 100% dan qizil.
 export function LimitBar({ icon, name, spent, limit }: { icon: string; name: string; spent: number; limit: number }) {
   const p = pct(spent, limit);
-  const color = p > 100 ? "bg-red-500" : p >= 80 ? "bg-amber-500" : "bg-emerald-500";
+  const color = p > 100 ? "bg-red-500" : p >= 80 ? "bg-amber-500" : "bg-blue-500";
   return (
     <div>
       <div className="flex justify-between gap-2 text-sm">
@@ -99,7 +99,7 @@ export function CardHead({ title, href, link }: { title: string; href?: string; 
     <div className="mb-3 flex items-baseline justify-between gap-2">
       <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
       {href && (
-        <Link href={href} className="text-xs font-medium text-emerald-700 hover:underline">
+        <Link href={href} className="text-xs font-medium text-blue-700 hover:underline">
           {link} →
         </Link>
       )}
