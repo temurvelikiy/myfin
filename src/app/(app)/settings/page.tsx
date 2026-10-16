@@ -6,6 +6,7 @@ import { getT } from "@/lib/lang";
 import { StateForm, Submit } from "@/components/StateForm";
 import { LangSwitch } from "@/components/I18n";
 import { ThemeToggle } from "@/components/Theme";
+import { AvatarEditor } from "@/components/AvatarEditor";
 
 export default async function Settings() {
   const user = await requireUser();
@@ -47,6 +48,11 @@ export default async function Settings() {
   return (
     <>
       <h1 className="h1">{t.navSettings}</h1>
+
+      <section className="card">
+        <h2 className="h2">{t.profile}</h2>
+        <AvatarEditor current={user.avatar} name={user.login} />
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card">

@@ -3,11 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { addTransaction } from "@/app/actions";
+import { fill } from "@/lib/i18n";
+import { fmt } from "@/lib/format";
 import { Submit } from "./StateForm";
 import { useT } from "./I18n";
 
 type Acc = { id: string; name: string; currency: string };
 type Cat = { id: string; name: string; icon: string; kind: string };
+// Ochiq qarz (qoldig'i bilan) va ochiq kredit (keyingi to'lovi bilan) — kategoriya ro'yxatida ko'rinadi.
+export type DebtOpt = { id: string; person: string; direction: string; left: number; currency: string };
+export type CreditOpt = { id: string; name: string; next: number | null; currency: string };
 
 const TABS = [
   ["EXPENSE", "expense"],
@@ -15,12 +20,28 @@ const TABS = [
   ["TRANSFER", "transferExchange"],
 ] as const;
 const NEW = "__new";
+const DEBT_NEW = "__debt_new";
 
-export function TxForm({ accounts, categories, day, today }: { accounts: Acc[]; categories: Cat[]; day: string; today: string }) {
+export function TxForm({
+  accounts,
+  categories,
+  debts,
+  credits,
+  day,
+  today,
+}: {
+  accounts: Acc[];
+  categories: Cat[];
+  debts: DebtOpt[];
+  credits: CreditOpt[];
+  day: string;
+  today: string;
+}) {
   const [state, action] = useFormState(addTransaction, {});
   const [type, setType] = useState("EXPENSE");
   const [from, setFrom] = useState(accounts[0]?.id ?? "");
   const [toRaw, setTo] = useState(accounts[1]?.id ?? "");
+  const [cat, setCat] = useState("");
   const [newCat, setNewCat] = useState(false);
   const form = useRef<HTMLFormElement>(null);
   const t = useT();
@@ -29,18 +50,29 @@ export function TxForm({ accounts, categories, day, today }: { accounts: Acc[]; 
   const cur = (id: string) => accounts.find((a) => a.id === id)?.currency ?? "UZS";
   const transfer = type === "TRANSFER";
   const exchange = transfer && cur(from) !== cur(to);
+  const expense = type === "EXPENSE";
+
+  // Xarajat: men qarz berdim (yangi) yoki olgan qarzimni qaytaraman. Daromad: men qarz oldim (yangi) yoki berganim qaytdi.
+  const list = categories.filter((c) => c.kind === type);
+  const debtList = debts.filter((d) => d.direction === (expense ? "TAKEN" : "GIVEN"));
+  const creditList = expense ? credits : [];
+  const value = cat || list[0]?.id || DEBT_NEW;
+  const isNewDebt = value === DEBT_NEW;
+  const picked = debts.find((d) => `debt:${d.id}` === value);
+  const pickedCredit = credits.find((c) => `credit:${c.id}` === value);
 
   useEffect(() => {
     if (!state.ok) return;
     form.current?.reset();
     setNewCat(false);
+    setCat("");
   }, [state]);
 
   return (
     <div className="card">
       <div className="seg mb-4 max-w-full overflow-x-auto">
         {TABS.map(([v, key]) => (
-          <button key={v} type="button" aria-pressed={type === v} className="whitespace-nowrap" onClick={() => (setType(v), setNewCat(false))}>
+          <button key={v} type="button" aria-pressed={type === v} className="whitespace-nowrap" onClick={() => (setType(v), setNewCat(false), setCat(""))}>
             {t[key]}
           </button>
         ))}
@@ -50,7 +82,7 @@ export function TxForm({ accounts, categories, day, today }: { accounts: Acc[]; 
         <input type="hidden" name="type" value={type} />
         <div>
           <label className="label">{t.amount} ({cur(from)})</label>
-          <input name="amount" className="input num text-base font-semibold" inputMode="decimal" required placeholder="0" autoComplete="off" />
+          <input name="amount" className="input num text-base font-semibold" inputMode="decimal" required placeholder={pickedCredit?.next ? String(Math.round(pickedCredit.next)) : "0"} autoComplete="off" />
         </div>
         <div>
           <label className="label">{transfer ? t.fromAccount : t.account}</label>
@@ -90,10 +122,30 @@ export function TxForm({ accounts, categories, day, today }: { accounts: Acc[]; 
                   </button>
                 </div>
               ) : (
-                <select name="categoryId" className="input" key={type} onChange={(e) => e.target.value === NEW && setNewCat(true)}>
-                  {categories.filter((c) => c.kind === type).map((c) => (
+                <select
+                  name="categoryId"
+                  className="input"
+                  value={value}
+                  onChange={(e) => (e.target.value === NEW ? setNewCat(true) : setCat(e.target.value))}
+                >
+                  {list.map((c) => (
                     <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                   ))}
+                  <optgroup label={t.debtsGroup}>
+                    <option value={DEBT_NEW}>{expense ? t.debtGaveNew : t.debtTookNew}</option>
+                    {debtList.map((d) => (
+                      <option key={d.id} value={`debt:${d.id}`}>
+                        {fill(expense ? t.repayTo : t.repaidBy, { p: d.person, v: fmt(d.left, d.currency) })}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {creditList.length > 0 && (
+                    <optgroup label={t.creditsGroup}>
+                      {creditList.map((c) => (
+                        <option key={c.id} value={`credit:${c.id}`}>{fill(t.creditPayOpt, { n: c.name })}</option>
+                      ))}
+                    </optgroup>
+                  )}
                   <option value={NEW}>{t.addNewCategory}</option>
                 </select>
               )}
@@ -106,6 +158,26 @@ export function TxForm({ accounts, categories, day, today }: { accounts: Acc[]; 
               </select>
             </div>
           </>
+        )}
+
+        {/* Yangi qarz: kim bilan va qachon qaytariladi */}
+        {!transfer && !newCat && isNewDebt && (
+          <>
+            <div className="col-span-2 lg:col-span-2">
+              <label className="label">{t.debtPerson}</label>
+              <input name="person" className="input" placeholder={t.debtPersonPlaceholder} maxLength={80} required />
+            </div>
+            <div className="col-span-2 lg:col-span-2">
+              <label className="label">{t.dueHint}</label>
+              <input name="dueDate" type="date" className="input" min={today} />
+            </div>
+          </>
+        )}
+        {!transfer && picked && (
+          <p className="col-span-full -mt-1 text-xs text-slate-500">{fill(t.remainingLabel, { v: fmt(picked.left, picked.currency) })}</p>
+        )}
+        {!transfer && pickedCredit?.next != null && (
+          <p className="col-span-full -mt-1 text-xs text-slate-500">{t.creditNext}: {fmt(pickedCredit.next, pickedCredit.currency)}</p>
         )}
 
         <div>

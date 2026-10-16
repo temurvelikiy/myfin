@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { addDays, currentYm, dayStr, monthLabel, monthRange, monthShort, shiftYm, todayStr, weekStart } from "./dates";
 import { fmt, pct } from "./format";
 import { DICTS, fill, tn, type Dict } from "./i18n";
+import { summarize } from "./credit";
 import type { Acc, Cat, Parsed } from "./parse";
 
 const PLUS = new Set(["INCOME", "DEBT_IN"]);
@@ -53,6 +54,7 @@ export type TxInput = {
   date?: Date;
   source?: string;
   debtId?: string | null;
+  creditId?: string | null;
 };
 
 export async function createTx(userId: string, d: TxInput) {
@@ -102,6 +104,7 @@ export async function createTx(userId: string, d: TxInput) {
       date: d.date ?? new Date(),
       source: d.source ?? "WEB",
       debtId: d.debtId ?? null,
+      creditId: d.creditId ?? null,
     },
   });
 }
@@ -185,7 +188,7 @@ export function describeParsed(p: Parsed, accounts: Acc[], categories: (Cat & { 
 
 export async function createDebt(
   userId: string,
-  d: { direction: string; person: string; amount: number; currency: string; dueDate?: Date | null; note?: string; accountId?: string | null; source?: string },
+  d: { direction: string; person: string; amount: number; currency: string; dueDate?: Date | null; note?: string; accountId?: string | null; source?: string; date?: Date },
 ) {
   if (!(d.amount > 0)) throw new Error("errAmount");
   if (!d.person) throw new Error("errPerson");
@@ -207,6 +210,7 @@ export async function createDebt(
       note: debt.person,
       debtId: debt.id,
       source: d.source,
+      date: d.date,
     });
   return debt;
 }
@@ -259,4 +263,158 @@ export async function trends(userId: string, t: Dict = UZ) {
     for (const b of [days.get(d), weeks.get(weekStart(d)), months.get(d.slice(0, 7))]) if (b) b[field] += t.amountBase;
   }
   return { days: [...days.values()], weeks: [...weeks.values()], months: [...months.values()] };
+}
+
+export const debtLeft = (d: { amount: number; paid: number }) => Math.max(round2(d.amount - d.paid), 0);
+
+// Qarzning bir qismini yoki hammasini qaytarish. GIVEN (men bergan) — pul hisobga qaytadi,
+// TAKEN (men olgan) — pul hisobdan chiqadi. Qoldiq 0 bo'lsa qarz yopiladi.
+export async function repayDebt(
+  userId: string,
+  debtId: string,
+  d: { amount: number; accountId: string; date?: Date; source?: string },
+) {
+  const debt = await prisma.debt.findFirst({ where: { id: debtId, userId, status: "OPEN" } });
+  if (!debt) throw new Error("debtNotFound");
+  if (!(d.amount > 0)) throw new Error("errAmount");
+  const left = debtLeft(debt);
+  if (d.amount > left + 0.005) throw new Error(`errOverpay|${left}`);
+  const account = await prisma.account.findFirst({ where: { id: d.accountId, userId } });
+  if (!account) throw new Error("errAccount");
+  if (account.currency !== debt.currency) throw new Error("errDebtCurrency");
+
+  await createTx(userId, {
+    type: debt.direction === "GIVEN" ? "DEBT_IN" : "DEBT_OUT",
+    amount: d.amount,
+    accountId: account.id,
+    note: debt.person,
+    debtId: debt.id,
+    date: d.date,
+    source: d.source,
+  });
+  const paid = round2(debt.paid + d.amount);
+  const closed = paid >= debt.amount - 0.005;
+  await prisma.debt.update({
+    where: { id: debt.id },
+    data: { paid, ...(closed ? { status: "CLOSED", closedAt: new Date() } : {}) },
+  });
+}
+
+// Qaytarish yozuvi (tx) o'chirilsa, qarz qoldig'i va holati tiklanadi.
+export async function undoDebtPayment(userId: string, tx: { debtId: string | null; type: string; amount: number }) {
+  if (!tx.debtId) return;
+  const debt = await prisma.debt.findFirst({ where: { id: tx.debtId, userId } });
+  if (!debt) return;
+  const isRepayment = (debt.direction === "GIVEN" && tx.type === "DEBT_IN") || (debt.direction === "TAKEN" && tx.type === "DEBT_OUT");
+  if (!isRepayment) return;
+  await prisma.debt.update({
+    where: { id: debt.id },
+    data: { paid: Math.max(round2(debt.paid - tx.amount), 0), status: "OPEN", closedAt: null },
+  });
+}
+
+// ---------- Kredit ----------
+
+export const CREDIT_CATEGORY = "Kredit to'lovi";
+
+async function creditCategoryId(userId: string) {
+  const cat = await prisma.category.upsert({
+    where: { userId_name_kind: { userId, name: CREDIT_CATEGORY, kind: "EXPENSE" } },
+    update: { archived: false },
+    create: { userId, name: CREDIT_CATEGORY, kind: "EXPENSE", icon: "🏦", keywords: "kredit,credit,кредит,loan,ipoteka,ипотека,taksit" },
+  });
+  return cat.id;
+}
+
+export async function creditPaid(creditId: string) {
+  const r = await prisma.transaction.aggregate({ where: { creditId, type: "EXPENSE" }, _sum: { amount: true } });
+  return r._sum.amount ?? 0;
+}
+
+export const termsOf = (c: { principal: number; rate: number; termMonths: number; kind: string; startDate: Date; payDay: number }) => ({
+  principal: c.principal,
+  rate: c.rate,
+  termMonths: c.termMonths,
+  kind: c.kind,
+  startDate: c.startDate,
+  payDay: c.payDay,
+});
+
+export async function createCredit(
+  userId: string,
+  d: { name: string; principal: number; rate: number; termMonths: number; kind: string; currency: string; startDate: Date; payDay: number; note?: string; accountId?: string | null },
+) {
+  if (!d.name) throw new Error("enterName");
+  if (!(d.principal > 0)) throw new Error("errAmount");
+  if (!(d.rate >= 0 && d.rate <= 200)) throw new Error("errCreditRate");
+  if (!(Number.isInteger(d.termMonths) && d.termMonths >= 1 && d.termMonths <= 600)) throw new Error("errCreditTerm");
+  if (!(Number.isInteger(d.payDay) && d.payDay >= 1 && d.payDay <= 31)) throw new Error("errPayDay");
+  let account = null;
+  if (d.accountId) {
+    account = await prisma.account.findFirst({ where: { id: d.accountId, userId } });
+    if (!account) throw new Error("errAccount");
+    if (account.currency !== d.currency) throw new Error("errDebtCurrency");
+  }
+  const credit = await prisma.credit.create({
+    data: {
+      userId,
+      name: d.name.slice(0, 80),
+      principal: round2(d.principal),
+      rate: d.rate,
+      termMonths: d.termMonths,
+      kind: d.kind === "DIFFERENTIATED" ? "DIFFERENTIATED" : "ANNUITY",
+      currency: d.currency === "USD" ? "USD" : "UZS",
+      startDate: d.startDate,
+      payDay: d.payDay,
+      note: (d.note ?? "").slice(0, 200),
+    },
+  });
+  // Kredit puli hisobga tushdi: daromad emas, qarz kirimi (DEBT_IN) — qoldiqqa qo'shiladi.
+  if (account)
+    await createTx(userId, { type: "DEBT_IN", amount: d.principal, accountId: account.id, note: credit.name, creditId: credit.id, date: d.startDate });
+  return credit;
+}
+
+// Kredit to'lovi: oddiy xarajat ("Kredit to'lovi" kategoriyasi), creditId bilan bog'lanadi.
+export async function payCredit(
+  userId: string,
+  creditId: string,
+  d: { amount: number; accountId: string; date?: Date; source?: string },
+) {
+  const credit = await prisma.credit.findFirst({ where: { id: creditId, userId, status: "OPEN" } });
+  if (!credit) throw new Error("creditNotFound");
+  const account = await prisma.account.findFirst({ where: { id: d.accountId, userId } });
+  if (!account) throw new Error("errAccount");
+  if (account.currency !== credit.currency) throw new Error("errDebtCurrency");
+
+  await createTx(userId, {
+    type: "EXPENSE",
+    amount: d.amount,
+    accountId: account.id,
+    categoryId: await creditCategoryId(userId),
+    note: credit.name,
+    creditId: credit.id,
+    date: d.date,
+    source: d.source,
+  });
+  const sum = summarize(termsOf(credit), await creditPaid(credit.id));
+  if (sum.left <= 0.5) await prisma.credit.update({ where: { id: credit.id }, data: { status: "CLOSED" } });
+}
+
+export async function undoCreditPayment(userId: string, tx: { creditId: string | null; type: string }) {
+  if (!tx.creditId || tx.type !== "EXPENSE") return;
+  await prisma.credit.updateMany({ where: { id: tx.creditId, userId }, data: { status: "OPEN" } });
+}
+
+// Kreditlar to'langan summa va to'lov jadvali xulosasi bilan.
+export async function getCredits(userId: string) {
+  const [credits, paid] = await Promise.all([
+    prisma.credit.findMany({ where: { userId }, orderBy: [{ status: "desc" }, { createdAt: "desc" }] }),
+    prisma.transaction.groupBy({ by: ["creditId"], where: { userId, creditId: { not: null }, type: "EXPENSE" }, _sum: { amount: true } }),
+  ]);
+  const paidBy = new Map(paid.map((r) => [r.creditId, r._sum.amount ?? 0]));
+  return credits.map((c) => {
+    const p = paidBy.get(c.id) ?? 0;
+    return { ...c, paid: p, ...summarize(termsOf(c), p) };
+  });
 }

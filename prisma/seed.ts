@@ -32,6 +32,7 @@ const EXPENSE = [
   ["Servislar", "💻", "servis,hosting,domen,server,canva,chatgpt,claude,figma,crm,podpiska"],
   ["Ofis", "🏢", "ofis,arenda,kantselyariya,kovorking"],
   ["Soliq va komissiya", "🧾", "soliq,komissiya,bank,jarima"],
+  ["Kredit to'lovi", "🏦", "kredit,credit,кредит,loan,ipoteka,ипотека,taksit"],
   ["Boshqa", "📦", ""],
   ["Tuzatish", "⚖️", ""],
 ];

@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getAccounts, monthStats, trends } from "@/lib/finance";
+import { debtLeft, getAccounts, getCredits, monthStats, trends } from "@/lib/finance";
 import { dayStr, monthLabel, shiftYm, shortDay, todayStr, validYm } from "@/lib/dates";
 import { change, fmt, pct } from "@/lib/format";
 import { fill, tn } from "@/lib/i18n";
@@ -17,7 +17,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { m?: 
   const t = getT();
   const ym = validYm(searchParams.m);
   const prevYm = shiftYm(ym, -1);
-  const [accounts, stats, prev, trend, categories, recent, debts] = await Promise.all([
+  const [accounts, stats, prev, trend, categories, recent, debts, credits] = await Promise.all([
     getAccounts(user.id),
     monthStats(user.id, ym),
     monthStats(user.id, prevYm),
@@ -25,6 +25,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { m?: 
     prisma.category.findMany({ where: { userId: user.id, archived: false }, orderBy: { name: "asc" } }),
     prisma.transaction.findMany({ where: { userId: user.id }, orderBy: { date: "desc" }, take: 7, include: TX_INCLUDE }),
     prisma.debt.findMany({ where: { userId: user.id, status: "OPEN" }, orderBy: { dueDate: "asc" } }),
+    getCredits(user.id),
   ]);
 
   const uzs = accounts.filter((a) => a.currency === "UZS").reduce((s, a) => s + a.balance, 0);
@@ -170,13 +171,34 @@ export default async function Dashboard({ searchParams }: { searchParams: { m?: 
                           </span>
                         )}
                       </span>
-                      <span className="num shrink-0 font-semibold">{fmt(d.amount, d.currency)}</span>
+                      <span className="num shrink-0 font-semibold">{fmt(debtLeft(d), d.currency)}</span>
                     </li>
                   );
                 })}
               </ul>
-            ) : (
+            ) : credits.every((c) => c.status !== "OPEN") ? (
               <Empty>{t.noOpenDebts}</Empty>
+            ) : null}
+            {credits.filter((c) => c.status === "OPEN").length > 0 && (
+              <ul className="divide-y divide-slate-100 border-t border-slate-100 text-sm">
+                {credits.filter((c) => c.status === "OPEN").map((c) => {
+                  const late = c.next && c.next.due < today;
+                  return (
+                    <li key={c.id} className="flex items-center justify-between gap-2 py-2">
+                      <span className="truncate">
+                        🏦 {c.name}
+                        {c.next && (
+                          <span className={`ml-2 text-xs ${late ? "font-medium text-red-600" : "text-slate-400"}`}>
+                            {c.next.due.slice(8)}.{c.next.due.slice(5, 7)}
+                            {late && ` · ${t.creditOverdue}`}
+                          </span>
+                        )}
+                      </span>
+                      <span className="num shrink-0 font-semibold">{c.next ? fmt(c.next.payment, c.currency) : fmt(0, c.currency)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </section>
         </div>

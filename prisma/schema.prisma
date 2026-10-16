@@ -18,6 +18,7 @@ model User {
   telegramId    String? @unique
   usdRate       Float   @default(12500) // 1 USD = ? UZS (hisobotlar uchun)
   savingsTarget Int     @default(20) // daromadning necha foizi jamg'arilishi kerak
+  avatar        String? // data:image/... (256px, kvadrat) — haqiqiy rasm yoki AI avatar
   createdAt     DateTime @default(now())
 
   sessions     Session[]
@@ -26,6 +27,7 @@ model User {
   budgets      Budget[]
   transactions Transaction[]
   debts        Debt[]
+  credits      Credit[]
 }
 
 model Session {
@@ -106,6 +108,8 @@ model Transaction {
   date        DateTime  @default(now())
   debtId      String?
   debt        Debt?     @relation(fields: [debtId], references: [id], onDelete: SetNull)
+  creditId    String?
+  credit      Credit?   @relation(fields: [creditId], references: [id], onDelete: SetNull)
   source      String    @default("WEB") // WEB | BOT
   createdAt   DateTime  @default(now())
 
@@ -119,6 +123,7 @@ model Debt {
   direction  String // GIVEN (men berdim) | TAKEN (men oldim)
   person     String
   amount     Float
+  paid       Float     @default(0) // qaytarilgan qism; qoldiq = amount - paid
   currency   String    @default("UZS")
   dueDate    DateTime?
   status     String    @default("OPEN") // OPEN | CLOSED
@@ -126,6 +131,29 @@ model Debt {
   remindedAt DateTime?
   closedAt   DateTime?
   createdAt  DateTime  @default(now())
+
+  transactions Transaction[]
+
+  @@index([userId, status])
+}
+
+// Bank krediti: to'lov jadvali saqlanmaydi, kredit shartlaridan hisoblanadi (src/lib/credit.ts).
+// To'lovlar oddiy xarajat (Transaction, creditId bilan) sifatida yoziladi.
+model Credit {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  principal  Float
+  rate       Float    @default(0) // yillik foiz
+  termMonths Int
+  kind       String   @default("ANNUITY") // ANNUITY | DIFFERENTIATED
+  currency   String   @default("UZS")
+  startDate  DateTime
+  payDay     Int      @default(1) // oyning qaysi kuni to'lanadi
+  status     String   @default("OPEN") // OPEN | CLOSED
+  note       String   @default("")
+  createdAt  DateTime @default(now())
 
   transactions Transaction[]
 

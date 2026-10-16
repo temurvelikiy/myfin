@@ -5,6 +5,7 @@ import { getT } from "@/lib/lang";
 import { Nav } from "@/components/Nav";
 import { LangSwitch } from "@/components/I18n";
 import { ThemeToggle } from "@/components/Theme";
+import { Avatar } from "@/components/Avatar";
 
 const Logo = () => (
   <Link href="/" className="flex items-center gap-2 text-lg font-bold text-white">
@@ -35,7 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <form action={logout} className="relative flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
           <span className="flex min-w-0 items-center gap-2 text-sm text-white">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-peach-300 text-xs font-semibold uppercase text-blue-900">{user.login[0]}</span>
+            <Avatar src={user.avatar} name={user.login} size={28} />
             <span className="truncate">{user.login}</span>
           </span>
           <button className="text-xs text-blue-100 hover:text-white">{t.logout}</button>

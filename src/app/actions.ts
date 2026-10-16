@@ -6,7 +6,19 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, requireUser } from "@/lib/auth";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { createDebt, createTx, describeParsed, getAccounts, saveParsed } from "@/lib/finance";
+import {
+  createCredit,
+  createDebt,
+  createTx,
+  debtLeft,
+  describeParsed,
+  getAccounts,
+  payCredit,
+  repayDebt,
+  saveParsed,
+  undoCreditPayment,
+  undoDebtPayment,
+} from "@/lib/finance";
 import { parseEntry } from "@/lib/parse";
 import { parseDay, validDay, validYm } from "@/lib/dates";
 import { fill, isLang, tMsg, type Dict } from "@/lib/i18n";
@@ -139,17 +151,50 @@ export async function addTransaction(_: State, fd: FormData): Promise<State> {
     categoryId = cat.id;
   }
 
+  const accountId = str(fd.get("accountId"));
+  const date = parseDay(str(fd.get("date"), 10));
+  const pick = categoryId ?? "";
+
+  // Kategoriya ro'yxatidagi qarz va kredit bandlari: yangi qarz, qarzni qaytarish, kredit to'lovi.
+  if (pick === "__debt_new" || pick.startsWith("debt:") || pick.startsWith("credit:")) {
+    try {
+      if (pick === "__debt_new") {
+        const acc = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
+        if (!acc) return err("errAccount");
+        const due = str(fd.get("dueDate"), 10);
+        await createDebt(user.id, {
+          // Xarajat — men qarz berdim, daromad — men qarz oldim.
+          direction: type === "EXPENSE" ? "GIVEN" : "TAKEN",
+          person: str(fd.get("person"), 80),
+          amount,
+          currency: acc.currency,
+          dueDate: validDay(due) ? new Date(`${due}T12:00:00+05:00`) : null,
+          note: str(fd.get("note")),
+          accountId,
+          date,
+        });
+      } else if (pick.startsWith("debt:")) {
+        await repayDebt(user.id, pick.slice(5), { amount, accountId, date });
+      } else {
+        await payCredit(user.id, pick.slice(7), { amount, accountId, date });
+      }
+    } catch (e) {
+      return fail(e);
+    }
+    return done(getT().saved);
+  }
+
   try {
     await createTx(user.id, {
       type,
       amount,
-      accountId: str(fd.get("accountId")),
+      accountId,
       toAccountId: str(fd.get("toAccountId")) || null,
       toAmount: num(fd.get("toAmount")) || null,
       categoryId,
       scope: str(fd.get("scope"), 20),
       note: str(fd.get("note")),
-      date: parseDay(str(fd.get("date"), 10)),
+      date,
     });
   } catch (e) {
     return fail(e);
@@ -159,7 +204,12 @@ export async function addTransaction(_: State, fd: FormData): Promise<State> {
 
 export async function deleteTransaction(fd: FormData) {
   const user = await requireUser();
-  await prisma.transaction.deleteMany({ where: { id: str(fd.get("id")), userId: user.id } });
+  const tx = await prisma.transaction.findFirst({ where: { id: str(fd.get("id")), userId: user.id } });
+  if (tx) {
+    await prisma.transaction.delete({ where: { id: tx.id } });
+    await undoDebtPayment(user.id, tx);
+    await undoCreditPayment(user.id, tx);
+  }
   revalidatePath("/", "layout");
 }
 
@@ -281,15 +331,14 @@ export async function closeDebt(_: State, fd: FormData): Promise<State> {
   if (accountId) {
     const acc = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!acc || acc.currency !== debt.currency) return err("chooseCurrencyAccount", { c: debt.currency });
-    await createTx(user.id, {
-      type: debt.direction === "GIVEN" ? "DEBT_IN" : "DEBT_OUT",
-      amount: debt.amount,
-      accountId,
-      note: debt.person,
-      debtId: debt.id,
-    });
+    try {
+      await repayDebt(user.id, debt.id, { amount: debtLeft(debt), accountId });
+    } catch (e) {
+      return fail(e);
+    }
+    return done(getT().debtClosed);
   }
-  await prisma.debt.update({ where: { id: debt.id }, data: { status: "CLOSED", closedAt: new Date() } });
+  await prisma.debt.update({ where: { id: debt.id }, data: { paid: debt.amount, status: "CLOSED", closedAt: new Date() } });
   return done(getT().debtClosed);
 }
 
@@ -300,6 +349,67 @@ export async function deleteDebt(fd: FormData) {
   await prisma.transaction.deleteMany({ where: { debtId: id, userId: user.id } });
   await prisma.debt.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/", "layout");
+}
+
+// ---------- Kreditlar ----------
+
+export async function addCredit(_: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  const start = str(fd.get("startDate"), 10);
+  try {
+    await createCredit(user.id, {
+      name: str(fd.get("name"), 80),
+      principal: num(fd.get("principal")),
+      rate: num(fd.get("rate")) || 0,
+      termMonths: Math.round(num(fd.get("termMonths"))),
+      kind: str(fd.get("kind"), 20),
+      currency: str(fd.get("currency"), 3),
+      startDate: validDay(start) ? new Date(`${start}T12:00:00+05:00`) : new Date(),
+      payDay: Math.round(num(fd.get("payDay"))),
+      note: str(fd.get("note")),
+      accountId: str(fd.get("accountId")) || null,
+    });
+  } catch (e) {
+    return fail(e);
+  }
+  return done(getT().creditSaved);
+}
+
+export async function payCreditAction(_: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  try {
+    await payCredit(user.id, str(fd.get("id")), { amount: num(fd.get("amount")), accountId: str(fd.get("accountId")) });
+  } catch (e) {
+    return fail(e);
+  }
+  return done(getT().creditPaid);
+}
+
+export async function deleteCredit(fd: FormData) {
+  const user = await requireUser();
+  const id = str(fd.get("id"));
+  // To'lovlar va kredit puli yozuvlari ham o'chadi, aks holda hisob qoldig'i noto'g'ri bo'lib qoladi.
+  await prisma.transaction.deleteMany({ where: { creditId: id, userId: user.id } });
+  await prisma.credit.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/", "layout");
+}
+
+// ---------- Avatar ----------
+
+const AVATAR_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+
+// Rasm brauzerda 256×256 ga kichraytirib yuboriladi; bazada data URL sifatida saqlanadi.
+export async function saveAvatar(dataUrl: string): Promise<State> {
+  const user = await requireUser();
+  if (typeof dataUrl !== "string" || dataUrl.length > 150_000 || !AVATAR_RE.test(dataUrl)) return err("avatarBadFile");
+  await prisma.user.update({ where: { id: user.id }, data: { avatar: dataUrl } });
+  return done(getT().avatarSaved);
+}
+
+export async function removeAvatar(): Promise<State> {
+  const user = await requireUser();
+  await prisma.user.update({ where: { id: user.id }, data: { avatar: null } });
+  return done(getT().avatarRemoved);
 }
 
 // ---------- Sozlamalar ----------

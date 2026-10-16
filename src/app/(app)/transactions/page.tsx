@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getAccounts, typeLabel } from "@/lib/finance";
+import { debtLeft, getAccounts, getCredits, typeLabel } from "@/lib/finance";
 import { dayLabel, dayRange, dayStr, monthLabel, monthRange, todayStr, validDay, validYm } from "@/lib/dates";
 import { fmt } from "@/lib/format";
 import { fill, tn } from "@/lib/i18n";
@@ -23,9 +23,11 @@ export default async function Transactions({ searchParams: q }: { searchParams: 
   const month = monthRange(ym);
   const range = day ? dayRange(day) : month;
 
-  const [accounts, categories, monthTxs, txs] = await Promise.all([
+  const [accounts, categories, openDebts, credits, monthTxs, txs] = await Promise.all([
     getAccounts(user.id),
     prisma.category.findMany({ where: { userId: user.id, archived: false }, orderBy: { name: "asc" } }),
+    prisma.debt.findMany({ where: { userId: user.id, status: "OPEN" }, orderBy: { createdAt: "desc" } }),
+    getCredits(user.id),
     prisma.transaction.findMany({
       where: { userId: user.id, type: { in: ["EXPENSE", "INCOME"] }, date: { gte: month.start, lt: month.end } },
       select: { date: true, type: true, amountBase: true },
@@ -65,7 +67,12 @@ export default async function Transactions({ searchParams: q }: { searchParams: 
   return (
     <>
       <MonthNav ym={ym} path="/transactions" title={t.navTx} t={t} />
-      <TxForm accounts={accs} categories={cats} day={day ?? (ym === today.slice(0, 7) ? today : `${ym}-01`)} today={today} />
+      <TxForm
+        accounts={accs}
+        categories={cats}
+        debts={openDebts.map((d) => ({ id: d.id, person: d.person, direction: d.direction, left: debtLeft(d), currency: d.currency }))}
+        credits={credits.filter((c) => c.status === "OPEN").map((c) => ({ id: c.id, name: c.name, next: c.next?.payment ?? null, currency: c.currency }))}
+        day={day ?? (ym === today.slice(0, 7) ? today : `${ym}-01`)} today={today} />
 
       <section className="card">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">

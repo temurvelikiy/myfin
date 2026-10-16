@@ -86,7 +86,7 @@ async function onMessage(msg: any) {
 
   if (text === "/qarz") {
     const debts = await prisma.debt.findMany({ where: { userId: user.id, status: "OPEN" }, orderBy: { dueDate: "asc" } });
-    const lines = debts.map((d) => `${d.direction === "GIVEN" ? "↗ Berdim" : "↙ Oldim"} · ${d.person} · ${fmt(d.amount, d.currency)}${d.dueDate ? ` · ${shortDay(d.dueDate)}` : ""}`);
+    const lines = debts.map((d) => `${d.direction === "GIVEN" ? "↗ Berdim" : "↙ Oldim"} · ${d.person} · ${fmt(Math.max(d.amount - d.paid, 0), d.currency)}${d.dueDate ? ` · ${shortDay(d.dueDate)}` : ""}`);
     return void (await send(chat, lines.join("\n") || "Ochiq qarz yo'q"));
   }
 
@@ -141,7 +141,7 @@ async function remindDebts() {
     if (d.remindedAt && dayStr(d.remindedAt) >= today) continue;
     const late = dayStr(d.dueDate!) < today ? " (muddati o'tgan)" : " (bugun)";
     const who = d.direction === "GIVEN" ? `${d.person} sizga qaytarishi kerak` : `Siz ${d.person}ga qaytarishingiz kerak`;
-    const r = await send(d.user.telegramId!, `⏰ Qarz eslatmasi${late}\n${who}: ${fmt(d.amount, d.currency)}`);
+    const r = await send(d.user.telegramId!, `⏰ Qarz eslatmasi${late}\n${who}: ${fmt(Math.max(d.amount - d.paid, 0), d.currency)}`);
     if (r.ok) await prisma.debt.update({ where: { id: d.id }, data: { remindedAt: new Date() } });
   }
 }
